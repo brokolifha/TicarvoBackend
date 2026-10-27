@@ -1,6 +1,8 @@
 # Ticarvo backend testleri: ayri, gecici bir MySQL (127.0.0.1:56128) acar, testleri calistirir, sonra kapatir.
 # Mevcut MySQL80 servisinize ve veritabanlariniza dokunmaz.
 # Calistirma (TicarvoBackend klasorunde):  powershell -ExecutionPolicy Bypass -File scripts\run-tests.ps1
+# Yalniz bazi siniflar:                    ... run-tests.ps1 -Test OrderIntegrationTest,ApiErrorsTest
+param([string]$Test = '')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $port = 56128
@@ -27,7 +29,8 @@ $server = Start-Process -FilePath $bin.FullName -WindowStyle Hidden -PassThru -A
 
 $ready = $false
 for ($i = 0; $i -lt 60; $i++) {
-    & $mysqladmin -uroot --host=127.0.0.1 "--port=$port" ping 2>$null | Out-Null
+    # A not-yet-ready server writes to stderr; under Stop that must not end the script and orphan mysqld.
+    & { $ErrorActionPreference = 'Continue'; & $mysqladmin -uroot --host=127.0.0.1 "--port=$port" --default-character-set=utf8mb4 ping 2>$null | Out-Null }
     if ($LASTEXITCODE -eq 0) { $ready = $true; break }
     Start-Sleep -Seconds 1
 }
@@ -39,7 +42,7 @@ try {
            "CREATE USER IF NOT EXISTS 'ticarvo_test'@'127.0.0.1' IDENTIFIED BY 'ticarvo_test'; " +
            "GRANT ALL ON ticarvo_m2_test.* TO 'ticarvo_test'@'127.0.0.1'; " +
            "GRANT ALL ON ticarvo_m2_upgrade_test.* TO 'ticarvo_test'@'127.0.0.1';"
-    & $mysql -uroot --host=127.0.0.1 "--port=$port" -e $sql
+    & $mysql -uroot --host=127.0.0.1 "--port=$port" --default-character-set=utf8mb4 -e $sql
     if ($LASTEXITCODE -ne 0) { throw 'Test semalari olusturulamadi.' }
 
     $env:TEST_DB_URL = "jdbc:mysql://127.0.0.1:$port/ticarvo_m2_test?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC"
@@ -47,11 +50,15 @@ try {
     $env:TEST_DB_PASSWORD = 'ticarvo_test'
 
     Push-Location $root
-    try { & .\mvnw.cmd -q test; $exit = $LASTEXITCODE } finally { Pop-Location }
+    # Old reports would otherwise appear in the summary as if they belonged to this run.
+    Remove-Item (Join-Path $root 'target\surefire-reports') -Recurse -Force -ErrorAction SilentlyContinue
+    $mavenArgs = @('-q', 'test')
+    if ($Test) { $mavenArgs += @("-Dtest=$Test", '-Dsurefire.failIfNoSpecifiedTests=false') }
+    try { & .\mvnw.cmd @mavenArgs; $exit = $LASTEXITCODE } finally { Pop-Location }
 }
 finally {
     Write-Host 'Test MySQL kapatiliyor...'
-    & $mysqladmin -uroot --host=127.0.0.1 "--port=$port" shutdown 2>$null | Out-Null
+    & { $ErrorActionPreference = 'Continue'; & $mysqladmin -uroot --host=127.0.0.1 "--port=$port" --default-character-set=utf8mb4 shutdown 2>$null | Out-Null }
     Start-Sleep -Seconds 2
     if (-not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
 }

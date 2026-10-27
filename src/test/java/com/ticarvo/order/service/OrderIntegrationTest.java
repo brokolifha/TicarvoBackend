@@ -39,6 +39,7 @@ class OrderIntegrationTest {
         registry.add("ticarvo.storage.image-dir",()->tempDirectory("ticarvo-m5-images"));
     }
     @Autowired IdentityService identity;
+    @Autowired com.ticarvo.company.service.CompanyAccess companies;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
     @Value("${local.server.port}") int port;
@@ -157,6 +158,15 @@ class OrderIntegrationTest {
             assertEquals(1L,count("SELECT COUNT(*) FROM order_checkouts WHERE buyer_company_id=? AND idempotency_key='same-key-123'",c1));
             assertEquals(9,stock(p),"the retry reserved nothing");
         } finally { pool.shutdownNow(); }
+    }
+
+    /** A-01: a page of 100 orders names up to 101 companies; the name lookup used to throw above 100. */
+    @Test void companyNamesForMoreThanOneHundredIds() throws Exception {
+        var owner=user(); UUID real=company(owner);
+        var ids=new ArrayList<UUID>(); ids.add(real);
+        for(int i=0;i<149;i++) ids.add(UUID.randomUUID());
+        var names=companies.summaries(ids);
+        assertEquals(1,names.size()); assertTrue(names.containsKey(real));
     }
 
     record Placed(String id,long version) {}

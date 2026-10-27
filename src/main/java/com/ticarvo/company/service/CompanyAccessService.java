@@ -38,6 +38,7 @@ public class CompanyAccessService implements CompanyAccess {
         return require(companyId, authentication, MEMBER, "MEMBER_REQUIRED", "Company membership is required.");
     }
     static final String OWNER = "OWNER", ADMIN = "ADMIN", MEMBER = "MEMBER";
+    static final int MAX_SUMMARIES = 1000;
     static int rank(String role) {
         return switch (role) { case OWNER -> 3; case ADMIN -> 2; case MEMBER -> 1; default -> 0; };
     }
@@ -82,9 +83,15 @@ public class CompanyAccessService implements CompanyAccess {
     }
     @Transactional(readOnly = true)
     public java.util.Map<UUID,CompanySummary> summaries(java.util.Collection<UUID> ids) {
-        if(ids==null || ids.size()>100 || ids.stream().anyMatch(java.util.Objects::isNull)) throw new IllegalArgumentException("At most 100 company IDs required.");
+        if(ids==null || ids.size()>MAX_SUMMARIES || ids.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IllegalArgumentException("At most "+MAX_SUMMARIES+" company IDs.");
+        }
         java.util.Map<UUID,CompanySummary> result=new java.util.HashMap<>();
-        companies.findAllById(ids).forEach(company -> result.put(company.getId(),summary(company)));
+        // In chunks of 100: a page of 100 orders names up to 101 companies (A-01), and each IN list stays small.
+        var list=new java.util.ArrayList<>(new java.util.LinkedHashSet<>(ids));
+        for(int i=0;i<list.size();i+=100) {
+            companies.findAllById(list.subList(i,Math.min(i+100,list.size()))).forEach(company -> result.put(company.getId(),summary(company)));
+        }
         return java.util.Map.copyOf(result);
     }
 }
