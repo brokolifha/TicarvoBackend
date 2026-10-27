@@ -46,11 +46,15 @@ public class CatalogService {
         this.trade=trade; this.limits=limits; this.clock=clock;
     }
 
-    /** Membership check, quota, seller lock, then a post-lock re-check (ADR-003; any member since ADR-006). */
+    /**
+     * Membership check, quota, seller lock, then a post-lock re-check (ADR-003; any member since ADR-006).
+     * Reads take the shared lock (A-02): they no longer queue behind each other, yet still wait for an
+     * in-flight change such as a revocation, which is what M3-R03 relies on.
+     */
     private UUID authorize(UUID company,UUID seller,Authentication auth,PrincipalRateLimit.Operation operation) {
         UUID actor=companies.requireMember(company,auth);
         limits.check(operation,actor);
-        companies.lockSeller(seller);
+        if(operation==CATALOG_READ) companies.lockSellerForRead(seller); else companies.lockSeller(seller);
         companies.requireMember(company,auth);
         return actor;
     }

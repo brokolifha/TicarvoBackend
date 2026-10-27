@@ -8,6 +8,8 @@ public interface CompanyAccess {
  UUID requireAdmin(UUID companyId, Authentication authentication);
  UUID requireMember(UUID companyId, Authentication authentication);
  CompanySummary lockSeller(UUID sellerId);
+ /** Shared (FOR SHARE) lock: concurrent readers proceed, a writer holding lockSeller is still awaited. */
+ CompanySummary lockSellerForRead(UUID sellerId);
  /** Locks several companies in UUID order, so two such callers can never deadlock (ADR-009); unknown ids are absent. */
  java.util.Map<UUID,CompanySummary> lockCompanies(java.util.Collection<UUID> companyIds);
  CompanySummary summary(UUID companyId);

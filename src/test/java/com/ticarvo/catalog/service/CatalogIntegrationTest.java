@@ -236,7 +236,7 @@ class CatalogIntegrationTest {
    Object result=invocation.callRealMethod();
    if(Thread.currentThread().getName().equals("locked-reader")){locked.countDown();assertTrue(resume.await(10,TimeUnit.SECONDS));}
    return result;
-  }).when(access).lockSeller(x.seller().company()));
+  }).when(access).lockSellerForRead(x.seller().company())); // A-02: reads hold the shared lock; the revoke below still waits for it
   var reader=Executors.newSingleThreadExecutor(r->new Thread(r,"locked-reader"));
   var writer=Executors.newSingleThreadExecutor();
   try{

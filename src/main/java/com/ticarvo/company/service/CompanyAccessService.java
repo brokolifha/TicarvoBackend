@@ -62,6 +62,13 @@ public class CompanyAccessService implements CompanyAccess {
         return summary(company);
     }
     @Transactional(propagation = Propagation.MANDATORY)
+    public CompanySummary lockSellerForRead(UUID sellerId) {
+        var company = companies.findById(sellerId)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SELLER_NOT_FOUND", "Seller was not found."));
+        entityManager.refresh(company, LockModeType.PESSIMISTIC_READ);
+        return summary(company);
+    }
+    @Transactional(propagation = Propagation.MANDATORY)
     public java.util.Map<UUID,CompanySummary> lockCompanies(java.util.Collection<UUID> companyIds) {
         var result = new java.util.LinkedHashMap<UUID,CompanySummary>();
         for (UUID id : new java.util.TreeSet<>(companyIds)) {

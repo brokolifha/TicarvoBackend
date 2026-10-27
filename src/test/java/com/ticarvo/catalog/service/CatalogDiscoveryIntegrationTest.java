@@ -42,6 +42,8 @@ class CatalogDiscoveryIntegrationTest {
     }
     @Autowired IdentityService identity;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.ticarvo.company.service.CompanyAccess companies;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @Autowired ObjectMapper json;
     @Value("${local.server.port}") int port;
     record User(UUID id,HttpClient http) {}
@@ -141,6 +143,24 @@ class CatalogDiscoveryIntegrationTest {
         assertEquals(filesBefore-1,imageFiles());
         assertEquals(404,bytes(m.seller(),c+"/"+id+"/images/"+png).statusCode());
         assertEquals(0L,jdbc.queryForObject("SELECT COUNT(*) FROM catalog_product_images WHERE product_id=? AND position NOT BETWEEN 0 AND 3",Long.class,id));
+    }
+
+    /** A-02: catalog reads share the seller lock, so a reader never waits for another reader. */
+    @Test void catalogReadsDoNotQueueBehindEachOther() throws Exception {
+        var m=market();
+        var held=new java.util.concurrent.CountDownLatch(1); var release=new java.util.concurrent.CountDownLatch(1);
+        var reader=java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            reader.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status->{
+                companies.lockSellerForRead(m.s()); held.countDown();
+                try { release.await(15,java.util.concurrent.TimeUnit.SECONDS); } catch(InterruptedException e) { Thread.currentThread().interrupt(); }
+            }));
+            assertTrue(held.await(10,java.util.concurrent.TimeUnit.SECONDS));
+            long start=System.nanoTime();
+            assertEquals(200,request(m.buyer(),"GET","/api/v1/companies/"+m.b()+"/catalog/sellers/"+m.s()+"/products",null,null).statusCode());
+            long millis=(System.nanoTime()-start)/1_000_000;
+            assertTrue(millis<5000,"a second reader must not wait for the first ("+millis+" ms)");
+        } finally { release.countDown(); reader.shutdown(); }
     }
 
     Market market() throws Exception {
