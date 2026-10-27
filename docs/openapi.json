@@ -8171,6 +8171,17 @@
           },
           "shippingAmount": {
             "type": "string"
+          },
+          "commission": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Commission"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only in the seller's views (/sales); null for buyers and consumers."
           }
         },
         "required": [
@@ -8196,7 +8207,8 @@
           "shippingAddress",
           "deliveredAt",
           "subtotalAmount",
-          "shippingAmount"
+          "shippingAmount",
+          "commission"
         ]
       },
       "OrderEvent": {
@@ -8942,6 +8954,27 @@
             ],
             "maxLength": 500,
             "description": "Required for REJECTED; the company sees it."
+          }
+        }
+      },
+      "Commission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rate",
+          "amount"
+        ],
+        "description": "ADR-011: platform commission fixed at checkout from ticarvo.commission.default-rate (0 in the first release): goods subtotal x rate, half up; shipping carries none.",
+        "properties": {
+          "rate": {
+            "type": "string",
+            "pattern": "^0\\.[0-9]{4}$",
+            "examples": [
+              "0.0750"
+            ]
+          },
+          "amount": {
+            "type": "string"
           }
         }
       }

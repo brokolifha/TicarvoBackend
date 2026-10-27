@@ -37,6 +37,8 @@ class OrderIntegrationTest {
         registry.add("spring.datasource.password",()->required("TEST_DB_PASSWORD"));
         registry.add("ticarvo.mail.outbox-dir",()->tempDirectory("ticarvo-m5-outbox"));
         registry.add("ticarvo.storage.image-dir",()->tempDirectory("ticarvo-m5-images"));
+        // ADR-011: a non-zero commission proves the recording; it never changes what the buyer pays.
+        registry.add("ticarvo.commission.default-rate",()->"0.075");
     }
     @Autowired IdentityService identity;
     @Autowired com.ticarvo.company.service.CompanyAccess companies;
@@ -203,6 +205,19 @@ class OrderIntegrationTest {
         assertEquals("145.00",small.get("totalAmount").asString());
         var large=json.readTree(order(buyer,b,"shipping-rule-3",checkout(group(s.id(),null,line(p,50,"10.00")))).body()).get("orders").get(0);
         assertEquals("0.00",large.get("shippingAmount").asString(),"free from 500"); assertEquals("500.00",large.get("totalAmount").asString());
+
+        // Commission: goods subtotal x rate, half up, never on shipping; only the seller sees it.
+        assertTrue(small.get("commission").isNull(),"the buyer never sees the commission");
+        var sale=json.readTree(send(s.user(),"GET","/api/v1/companies/"+s.id()+"/sales/"+small.get("id").asString(),null).body()).get("order");
+        assertEquals("0.0750",sale.get("commission").get("rate").asString());
+        assertEquals("9.00",sale.get("commission").get("amount").asString(),"120.00 x 0.075, shipping excluded");
+        var sales=json.readTree(send(s.user(),"GET","/api/v1/companies/"+s.id()+"/sales",null).body()).get("content");
+        assertEquals("37.50",byId(sales,large.get("id").asString()).get("commission").get("amount").asString());
+        assertTrue(json.readTree(send(buyer,"GET","/api/v1/companies/"+b+"/orders/"+small.get("id").asString(),null).body()).get("order").get("commission").isNull());
+    }
+    static JsonNode byId(JsonNode orders,String id) {
+        for(JsonNode o:orders) if(o.get("id").asString().equals(id)) return o;
+        throw new AssertionError("order "+id+" missing");
     }
 
     /** A-01: a page of 100 orders names up to 101 companies; the name lookup used to throw above 100. */

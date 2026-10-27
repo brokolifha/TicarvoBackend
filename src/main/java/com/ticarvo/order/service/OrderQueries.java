@@ -39,29 +39,29 @@ public class OrderQueries {
     public OrderDtos.Page mine(OrderStatus status, int page, int size, Authentication auth) {
         PageValidation.validatePage(page, size);
         var result = orders.consumerList(users.currentUserId(auth), status, PageRequest.of(page, size, Sort.by("createdAt").descending().and(Sort.by("id"))));
-        return new OrderDtos.Page(views(result.getContent()), page, size, result.getTotalElements());
+        return new OrderDtos.Page(views(result.getContent(), false), page, size, result.getTotalElements());
     }
     public OrderDtos.Detail mine(UUID id, Authentication auth) {
         UUID user = users.currentUserId(auth);
-        return detail(orders.findById(id).filter(o -> user.equals(o.consumerUserId())).orElseThrow(OrderQueries::notFound));
+        return detail(orders.findById(id).filter(o -> user.equals(o.consumerUserId())).orElseThrow(OrderQueries::notFound), false);
     }
     public OrderDtos.Page list(UUID company, boolean asSeller, OrderStatus status, int page, int size, Authentication auth) {
         companies.requireMember(company, auth);
         PageValidation.validatePage(page, size);
         var request = PageRequest.of(page, size, Sort.by("createdAt").descending().and(Sort.by("id")));
         var result = asSeller ? orders.sellerList(company, status, request) : orders.buyerList(company, status, request);
-        return new OrderDtos.Page(views(result.getContent()), page, size, result.getTotalElements());
+        return new OrderDtos.Page(views(result.getContent(), asSeller), page, size, result.getTotalElements());
     }
     public OrderDtos.Detail get(UUID company, boolean asSeller, UUID id, Authentication auth) {
         companies.requireMember(company, auth);
-        return detail(orders.findById(id).filter(o -> party(o, company, asSeller)).orElseThrow(OrderQueries::notFound));
+        return detail(orders.findById(id).filter(o -> party(o, company, asSeller)).orElseThrow(OrderQueries::notFound), asSeller);
     }
-    OrderDtos.Detail detail(PurchaseOrder order) {
-        return new OrderDtos.Detail(views(List.of(order)).getFirst(),
+    OrderDtos.Detail detail(PurchaseOrder order, boolean asSeller) {
+        return new OrderDtos.Detail(views(List.of(order), asSeller).getFirst(),
             events.findByOrderIdOrderByCreatedAtAsc(order.id()).stream().map(OrderQueries::event).toList());
     }
     OrderDtos.CheckoutResult checkout(UUID checkoutId) {
-        return new OrderDtos.CheckoutResult(checkoutId, views(orders.findByCheckoutIdOrderBySellerCompanyId(checkoutId)));
+        return new OrderDtos.CheckoutResult(checkoutId, views(orders.findByCheckoutIdOrderBySellerCompanyId(checkoutId), false));
     }
     Map<UUID, Integer> quantities(UUID orderId) {
         return lines.findByOrderIdInOrderByOrderIdAscLineNoAsc(List.of(orderId)).stream()
@@ -73,7 +73,7 @@ public class OrderQueries {
     static ApiException notFound() { return new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order was not found."); }
     static String money(BigDecimal amount) { return amount.setScale(2).toPlainString(); }
 
-    private List<OrderDtos.Order> views(List<PurchaseOrder> page) {
+    private List<OrderDtos.Order> views(List<PurchaseOrder> page, boolean asSeller) {
         if (page.isEmpty()) return List.of();
         var byOrder = lines.findByOrderIdInOrderByOrderIdAscLineNoAsc(page.stream().map(PurchaseOrder::id).toList()).stream()
             .collect(Collectors.groupingBy(OrderLine::orderId));
@@ -86,7 +86,8 @@ public class OrderQueries {
             String buyerName = o.buyerCompanyId() != null ? names.get(o.buyerCompanyId()).name() : a == null ? null : a.recipient();
             return new OrderDtos.Order(o.id(), o.checkoutId(), o.channel(), o.buyerCompanyId(), buyerName,
                 o.sellerCompanyId(), names.get(o.sellerCompanyId()).name(), o.status(), o.paymentStatus(), o.paymentMethod(), o.currency(),
-                money(o.subtotalAmount()), money(o.shippingAmount()), money(o.totalAmount()), o.buyerNote(), address, o.carrier(), o.trackingNumber(), o.deliveredAt(), o.createdAt(), o.updatedAt(),
+                money(o.subtotalAmount()), money(o.shippingAmount()), money(o.totalAmount()),
+                asSeller ? new OrderDtos.Commission(o.commissionRate().setScale(4).toPlainString(), money(o.commissionAmount())) : null, o.buyerNote(), address, o.carrier(), o.trackingNumber(), o.deliveredAt(), o.createdAt(), o.updatedAt(),
                 o.version(), byOrder.getOrDefault(o.id(), List.of()).stream().map(OrderQueries::line).toList());
         }).toList();
     }

@@ -40,6 +40,11 @@ public class PurchaseOrder {
     private BigDecimal subtotalAmount;
     @Column(name = "shipping_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal shippingAmount = BigDecimal.ZERO;
+    // ADR-011: the platform's share of the goods subtotal, fixed when the order is placed.
+    @Column(name = "commission_rate", nullable = false, precision = 5, scale = 4)
+    private BigDecimal commissionRate = BigDecimal.ZERO;
+    @Column(name = "commission_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal commissionAmount = BigDecimal.ZERO;
     @Column(name = "buyer_note", length = 1000)
     private String buyerNote;
     @Column(length = 100)
@@ -94,6 +99,10 @@ public class PurchaseOrder {
     public BigDecimal totalAmount() { return totalAmount; }
     public BigDecimal subtotalAmount() { return subtotalAmount; }
     public BigDecimal shippingAmount() { return shippingAmount; }
+    public BigDecimal commissionRate() { return commissionRate; }
+    public BigDecimal commissionAmount() { return commissionAmount; }
+    /** Call after charges(): shipping carries no commission. */
+    public void commission(BigDecimal rate) { commissionRate = rate; commissionAmount = subtotalAmount.multiply(rate).setScale(2, java.math.RoundingMode.HALF_UP); }
     /** Goods plus shipping make the total (ADR-011). */
     public void charges(BigDecimal subtotal, BigDecimal shipping) { subtotalAmount = subtotal; shippingAmount = shipping; totalAmount = subtotal.add(shipping); }
     public String buyerNote() { return buyerNote; }

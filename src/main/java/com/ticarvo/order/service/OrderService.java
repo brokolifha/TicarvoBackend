@@ -107,7 +107,7 @@ public class OrderService {
             events.save(new OrderEvent(id, actor, action, order.status(), order.status(), null, now));
             orders.saveAndFlush(order);
         }
-        return queries.detail(order);
+        return queries.detail(order, true);
     }
 
     private OrderDtos.Detail move(Party party, UUID id, long expectedVersion, Authentication auth, String action,
@@ -121,7 +121,7 @@ public class OrderService {
         order.move(to, now);
         events.save(new OrderEvent(id, actor, action, previous, to, blankToNull(note), now));
         orders.saveAndFlush(order);
-        return queries.detail(order);
+        return queries.detail(order, party.asSeller());
     }
     private UUID actor(Party party, Authentication auth) {
         return party.consumer() ? users.currentUserId(auth) : companies.requireMember(party.company(), auth);

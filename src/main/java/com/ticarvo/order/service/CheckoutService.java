@@ -55,9 +55,16 @@ public class CheckoutService {
     private final PrincipalRateLimit limits;
     private final Clock clock;
     private final String termsVersion;
+    private final BigDecimal commissionRate;
     public CheckoutService(CheckoutRepository checkouts, PurchaseOrderRepository orders, OrderLineRepository lines, OrderEventRepository events,
             OrderQueries queries, CompanyAccess companies, TradeAccess trade, CatalogOrdering catalog, CurrentUserProvider users,
-            UserDirectory directory, PrincipalRateLimit limits, Clock clock, @Value("${ticarvo.legal.terms-version:draft-1}") String termsVersion) {
+            UserDirectory directory, PrincipalRateLimit limits, Clock clock, @Value("${ticarvo.legal.terms-version:draft-1}") String termsVersion,
+            @Value("${ticarvo.commission.default-rate:0}") BigDecimal commissionRate) {
+        // A wrong rate must stop the start-up, not reach orders.
+        if (commissionRate.signum() < 0 || commissionRate.compareTo(new BigDecimal("0.5")) > 0 || commissionRate.scale() > 4) {
+            throw new IllegalStateException("ticarvo.commission.default-rate must be 0..0.5 with at most 4 decimals.");
+        }
+        this.commissionRate = commissionRate;
         this.checkouts = checkouts; this.orders = orders; this.lines = lines; this.events = events; this.queries = queries;
         this.companies = companies; this.trade = trade; this.catalog = catalog; this.users = users; this.directory = directory;
         this.limits = limits; this.clock = clock; this.termsVersion = termsVersion;
@@ -159,6 +166,7 @@ public class CheckoutService {
             var shipping = rule.fee() != null && (rule.freeFrom() == null || total.compareTo(rule.freeFrom()) < 0) ? rule.fee() : BigDecimal.ZERO.setScale(2);
             var order = factory.create(checkout.id(), group.sellerCompanyId(), currency(found), total, blankToNull(group.note()), now);
             order.charges(total, shipping);
+            order.commission(commissionRate);
             if (order.totalAmount().precision() - order.totalAmount().scale() > 17) throw invalid("Order total is too large.");
             orders.save(order);
             for (int i = 0; i < group.lines().size(); i++) {
