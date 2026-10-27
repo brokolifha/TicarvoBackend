@@ -15,7 +15,7 @@ class ConfigurationPropertiesTest {
   var loader=getClass().getClassLoader();
   assertNull(loader.getResource("application.yaml"));assertNull(loader.getResource("application-local.yaml"));
   Properties raw=new Properties();try(var input=loader.getResourceAsStream("application.properties")){assertNotNull(input);raw.load(input);}
-  assertEquals(32,raw.size());assertEquals("${COMMISSION_RATE:0}",raw.getProperty("ticarvo.commission.default-rate"));assertEquals("${SELLER_VERIFICATION_REQUIRED:true}",raw.getProperty("ticarvo.sellers.verification-required"),"production default: admin-verified sellers (ADR-011)");
+  assertEquals(33,raw.size());assertEquals("${COMMISSION_RATE:0}",raw.getProperty("ticarvo.commission.default-rate"));assertEquals("${SELLER_VERIFICATION_REQUIRED:true}",raw.getProperty("ticarvo.sellers.verification-required"),"production default: admin-verified sellers (ADR-011)");
   assertEquals("${DB_URL}",raw.getProperty("spring.datasource.url"));
   assertEquals("${DB_USERNAME}",raw.getProperty("spring.datasource.username"));
   assertEquals("${DB_PASSWORD}",raw.getProperty("spring.datasource.password"));
@@ -28,7 +28,7 @@ class ConfigurationPropertiesTest {
     "spring.application.name=ticarvo-backend","spring.jpa.open-in-view=false","spring.jpa.hibernate.ddl-auto=validate",
     "spring.jpa.properties.hibernate.jdbc.time_zone=UTC","spring.flyway.enabled=true","spring.flyway.clean-disabled=true",
     "spring.session.timeout=30m","spring.session.jdbc.initialize-schema=never","spring.jackson.deserialization.fail-on-unknown-properties=true",
-    "spring.mvc.problemdetails.enabled=true","server.forward-headers-strategy=none",
+    "spring.mvc.problemdetails.enabled=true","server.forward-headers-strategy=native","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|0:0:0:0:0:0:0:1|::1",
     "server.servlet.session.cookie.name=TICARVO_SESSION","server.servlet.session.cookie.path=/",
     "server.servlet.session.cookie.http-only=true","server.servlet.session.cookie.secure=true","server.servlet.session.cookie.same-site=lax",
     "server.error.include-message=never","server.error.include-stacktrace=never","server.error.include-binding-errors=never",

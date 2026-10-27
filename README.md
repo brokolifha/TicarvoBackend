@@ -8,7 +8,7 @@ Java 25 ve ayrı bir MySQL veritabanı gerekir. Native MySQL 8.0.40 ile doğrula
 
 PowerShell ortamına kendi boş geliştirme veritabanınızın DB_URL, DB_USERNAME, DB_PASSWORD bilgilerini koyup yerel HTTP için SPRING_PROFILES_ACTIVE=local seçin; ardından `./mvnw.cmd spring-boot:run` çalıştırın. DB_URL örneği: `jdbc:mysql://127.0.0.1:3306/ticarvo_dev?connectionTimeZone=UTC`. Uygulama varsayılan veritabanına bağlanmaz; gerekli bağlantı eksikse açılmaz. .env.example kendiliğinden yüklenmez.
 
-Flyway V1–V5 sürümlerini uygular, Hibernate yalnız validate yapar. Kullanılmış migration dosyalarını değiştirmeyin. Open-in-view kapalıdır. local profili yalnız HTTP localhost için Secure cookie bayrağını kapatır. Üretimde local kullanılmaz: TICARVO_SESSION cookie Secure, HttpOnly, SameSite=Lax, Path=/ ve host-only'dir.
+Flyway V1–V16 sürümlerini uygular, Hibernate yalnız validate yapar. Kullanılmış migration dosyalarını değiştirmeyin. Open-in-view kapalıdır. local profili yalnız HTTP localhost için Secure cookie bayrağını kapatır. Üretimde local kullanılmaz: TICARVO_SESSION cookie Secure, HttpOnly, SameSite=Lax, Path=/ ve host-only'dir.
 
 ## API sözleşmesi ve akış
 
@@ -50,9 +50,9 @@ Public opt-out veya kod iptali önceki ilişkileri değiştirmez. İlişki revok
 
 Kimliği doğrulanmış kullanıcı için bütün firmalarda ortak15dk kotaları: apply30, resolve60, rotate10, company-create10. İşlem türleri ayrıdır. En fazla10.000 anahtar, TTL ve doluyken fail-closed. ticarvo.limits.* yapılandırması window-seconds, capacity, apply, resolve, rotate, company-create alanlarını alır. 429 Retry-After içerir. Ham kod/buyer ID principal kotasını değiştirmez.
 
-M1 IP login/register limiti proxy arkasında tüm kullanıcıları ortak kotaya sokabilir; SEC-M1-002 yayın blokajı devam eder. Sayaçlar tek process belleğindedir, restartta sıfırlanır ve çok instance için ortak değildir. Çoklu sahte hesap, public/session uçlarının edge koruması, e-posta sahipliği, satıcı doğrulama ve moderasyon genel yayın öncesi açık işlerdir.
+IP başına limitler (login/kayıt, public katalog) proxy arkasında gerçek istemci IP'sini kullanır (SEC-M1-002 kapandı, ADR-011): Tomcat `X-Forwarded-For` başlığını yalnız `TRUSTED_PROXIES` (regex; varsayılan `127\.0\.0\.1|0:0:0:0:0:0:0:1|::1`) adresinden gelen isteklerde kullanır. Sayaçlar tek process belleğindedir, restartta sıfırlanır ve çok instance için ortak değildir. Çoklu sahte hesap, public/session uçlarının edge koruması, e-posta sahipliği, satıcı doğrulama ve moderasyon genel yayın öncesi açık işlerdir.
 
-CORS varsayılan same-origin. Gerekirse CORS_ALLOWED_ORIGINS açık HTTPS/localhost origin listesi; wildcard yok. İzinli yöntemler GET/POST/PUT/DELETE/OPTIONS. Forwarded IP başlıklarına doğrudan güvenilmez.
+CORS varsayılan same-origin. Gerekirse CORS_ALLOWED_ORIGINS açık HTTPS/localhost origin listesi; wildcard yok. İzinli yöntemler GET/POST/PUT/DELETE/OPTIONS. Forwarded IP başlıklarına yalnız güvenilen proxy'den gelince uyulur.
 
 ## Testler
 
@@ -63,6 +63,10 @@ TEST_DB_URL, TEST_DB_USERNAME, TEST_DB_PASSWORD zorunludur; H2 veya sessiz skip 
 Çalışan local test JAR'ında `./scripts/http-smoke.ps1 -BaseUrl http://127.0.0.1:8080 -MailOutbox <uygulamanın giden kutusu klasörü>` M1 gerçek cookie/CSRF regresyonudur; kullanıcıları giden kutusundaki kodla doğrular. Başarısız check nonzero hata üretir; sentetik sonuç dosyaları Git dışıdır. Bu script test veritabanı dışında çalıştırılmaz.
 
 ## Dağıtım
+
+Tek adres (K-26): Nginx `/` yolunda frontend'i, `/api` yolunda backend'i sunar; CORS gerekmez. Örnek ayar `deploy/nginx/ticarvo.conf` dosyasındadır. Backend yalnız proxy'nin ulaşabildiği adreste dinlemelidir. Backend Docker'da, Nginx host'ta çalışıyorsa `TRUSTED_PROXIES` bridge geçidine ayarlanır (örneğin `172\.17\.0\.1`).
+
+Üretim ayarları (ADR-011): `SELLER_VERIFICATION_REQUIRED` varsayılan `true`, yani yeni firma platform admini onayından sonra satış yapar; local profilde `false`. `COMMISSION_RATE` varsayılan `0` (0–0,5 arası).
 
 Backend Dockerfile çok aşamalı ve root olmayan Java25 runtime hedefler. İş akışı: test edilmiş imajı benzersiz tag/digest ile build→registry push→VPS pull. Ortak Compose koordinasyon outputs/deployment altındadır. Bu kaynak teslimi gerçek Docker runtime, TLS/tarayıcı cookie bütünleşmesi, image taraması, yedek geri yükleme veya canlı deploy kanıtı değildir. Genel yayın mimari/güvenlik blokajları kapatıldıktan sonra ayrı doğrulanır.
 

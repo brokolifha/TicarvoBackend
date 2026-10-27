@@ -203,6 +203,22 @@ class CatalogDiscoveryIntegrationTest {
     }
 
     /** A-02: catalog reads share the seller lock, so a reader never waits for another reader. */
+    /** SEC-M1-002: behind the trusted local proxy each client has its own public quota, not one shared by everyone. */
+    @Test void perAddressLimitsUseTheClientBehindTheTrustedProxy() throws Exception {
+        var client=java.net.http.HttpClient.newHttpClient();
+        java.util.function.Function<String,Integer> get=forwarded->{
+            try {
+                return client.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:"+port+"/api/v1/catalog/categories"))
+                    .header("X-Forwarded-For",forwarded).GET().build(),java.net.http.HttpResponse.BodyHandlers.discarding()).statusCode();
+            } catch(Exception failure) { throw new IllegalStateException(failure); }
+        };
+        for(int i=0;i<120;i++) assertEquals(200,get.apply("203.0.113.50"));
+        assertEquals(429,get.apply("203.0.113.50"),"the forwarded client used its quota");
+        assertEquals(200,get.apply("203.0.113.51"),"another client behind the same proxy is not affected");
+        // A spoofed left-most entry does not help: the address the trusted proxy appended is the client.
+        assertEquals(429,get.apply("198.51.100.7, 203.0.113.50"));
+    }
+
     @Test void catalogReadsDoNotQueueBehindEachOther() throws Exception {
         var m=market();
         var held=new java.util.concurrent.CountDownLatch(1); var release=new java.util.concurrent.CountDownLatch(1);

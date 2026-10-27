@@ -54,7 +54,7 @@ public final class RequestProtectionFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         Integer limit = "POST".equals(request.getMethod()) ? ANONYMOUS_POST_LIMITS.get(path) : null;
         if (limit != null) {
-            // Deliberately do not trust client-supplied forwarding headers.
+            // getRemoteAddr is the caller, or the X-Forwarded-For client only when Tomcat trusts the proxy (SEC-M1-002).
             if (!authLimiter.allow(path + ":" + request.getRemoteAddr(), limit)) {
                 response.setHeader("Retry-After", "900");
                 problems.write(response, HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "Please try again later."); return;
