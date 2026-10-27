@@ -12,7 +12,7 @@ Flyway V1–V5 sürümlerini uygular, Hibernate yalnız validate yapar. Kullanı
 
 ## API sözleşmesi ve akış
 
-`docs/openapi.yaml` OpenAPI 3.1 sözleşmesidir (JSON sözdizimi YAML 1.2 ile uyumludur). Hatalar application/problem+json, tarihler UTC ISO-8601, kimlikler UUID. Yanıtlar no-store; özel veri DTO'larla sınırlanır.
+`docs/openapi.json` OpenAPI 3.1 sözleşmesidir; frontend tipleri bu dosyadan üretilebilir (örneğin `openapi-typescript`). Hatalar application/problem+json, tarihler UTC ISO-8601, kimlikler UUID. Yanıtlar no-store; özel veri DTO'larla sınırlanır.
 
 1. GET /api/v1/auth/csrf ile maskeli token alın; cookie'yi koruyun.
 2. POST /auth/register JSON email/password/displayName: 201, otomatik giriş yok. Parola en az12 karakter, en fazla72 UTF-8 byte; BCrypt12.
