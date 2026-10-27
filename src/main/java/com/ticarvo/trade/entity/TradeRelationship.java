@@ -23,6 +23,8 @@ public class TradeRelationship {
         createdAt=now; updatedAt=now; requestedByUserId=actor; lastActionByUserId=actor;
     }
     public void transition(TradeStatus next, UUID actor, Instant now) { status=next; lastActionByUserId=actor; updatedAt=now; }
+    /** A closed (rejected or revoked) pair asks again on the same row; the event log keeps the earlier rounds (A-03). */
+    public void reapply(UUID actor, Instant now) { transition(TradeStatus.PENDING, actor, now); requestedByUserId=actor; }
     public UUID id() { return id; }
     public UUID buyerId() { return buyerCompanyId; }
     public UUID sellerId() { return sellerCompanyId; }

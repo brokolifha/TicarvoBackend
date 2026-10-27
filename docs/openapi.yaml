@@ -1587,7 +1587,7 @@
     },
     "/companies/{companyId}/trade-relationships": {
       "post": {
-        "summary": "Buyer OWNER applies via exactly one public seller ID or current code",
+        "summary": "Buyer OWNER applies via exactly one public seller ID or current code. A rejected or revoked pair may apply again on the same relationship after 30 days, or at once with the seller share code (A-03)",
         "parameters": [
           {
             "name": "companyId",
@@ -1620,7 +1620,7 @@
             }
           },
           "default": {
-            "description": "Problem. 400 input; 401 authentication; 403 CSRF/role; 404 invisible/missing; 409 duplicate/state/version; 413 body limit; 429 quota.",
+            "description": "Problem. 400 input; 401 authentication; 403 CSRF/role; 404 invisible/missing; 409 duplicate/state/version; 413 body limit; 429 quota. 409 REAPPLY_TOO_SOON within 30 days of a rejection or revocation.",
             "content": {
               "application/problem+json": {
                 "schema": {

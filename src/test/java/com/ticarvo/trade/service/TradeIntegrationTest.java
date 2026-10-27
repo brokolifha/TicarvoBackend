@@ -104,10 +104,20 @@ class TradeIntegrationTest {
         error("RELATIONSHIP_VERSION_CONFLICT",()->trade.decide(b.company(),pending.id(),0,TradeStatus.APPROVED,b.auth()));
         error("RELATIONSHIP_STATE_CONFLICT",()->trade.decide(b.company(),pending.id(),2,TradeStatus.APPROVED,b.auth()));
         sellers.update(b.company(),true,b.auth());
-        error("RELATIONSHIP_EXISTS",()->apply(a,b));
+        error("REAPPLY_TOO_SOON",()->apply(a,b)); // A-03: a closed pair may ask again, but not at once
         assertEquals(3,eventCount(pending.id()));
         assertEquals(List.of(0L,1L,2L),jdbc.queryForList("SELECT relationship_version FROM trade_relationship_events WHERE relationship_id=? ORDER BY relationship_version",Long.class,pending.id().toString()));
         assertEquals(a.userId().toString(),jdbc.queryForObject("SELECT actor_user_id FROM trade_relationship_events WHERE relationship_id=? AND action='APPLIED'",String.class,pending.id().toString()));
+        // A-03: after 30 days the same pair asks again on the same row; the seller decides anew.
+        Instant decided=clock.instant();
+        try {
+            clock.now=decided.plus(java.time.Duration.ofDays(31));
+            var again=apply(a,b);
+            assertEquals(pending.id(),again.id()); assertEquals(TradeStatus.PENDING,again.status()); assertEquals(3,again.version());
+            assertFalse(trade.hasApprovedRelationship(a.company(),b.company()),"asking again grants nothing");
+            assertEquals("REAPPLIED",jdbc.queryForObject("SELECT action FROM trade_relationship_events WHERE relationship_id=? AND relationship_version=3",String.class,pending.id().toString()));
+            error("RELATIONSHIP_EXISTS",()->apply(a,b));
+        } finally { clock.now=decided; }
         error("SELF_RELATIONSHIP_NOT_ALLOWED",()->apply(b,b));
         jdbc.update("UPDATE company_memberships SET role='MEMBER' WHERE company_id=? AND user_id=?",b.company().toString(),b.userId().toString());
         // ADR-006: a MEMBER may view the seller profile but not change it.

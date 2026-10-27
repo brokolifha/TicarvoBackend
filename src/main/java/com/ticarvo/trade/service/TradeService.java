@@ -22,6 +22,7 @@ import java.util.UUID;
 
 @Service
 public class TradeService implements TradeAccess {
+    static final java.time.Duration REAPPLY_AFTER=java.time.Duration.ofDays(30);
     private final TradeRepository relationships;
     private final TradeEventRepository events;
     private final CompanyAccess companies;
@@ -54,10 +55,23 @@ public class TradeService implements TradeAccess {
         // ARCH-M43-01: re-read the role after the seller lock; READ_COMMITTED sees a demotion committed meanwhile.
         companies.requireAdmin(buyerId,auth);
         if(buyerId.equals(sellerId)) throw self();
-        if(relationships.findPairForUpdate(buyerId,sellerId).isPresent()) {
-            throw new ApiException(HttpStatus.CONFLICT,"RELATIONSHIP_EXISTS","A relationship for these companies already exists.");
-        }
         var now=clock.instant();
+        var existing=relationships.findPairForUpdate(buyerId,sellerId);
+        if(existing.isPresent()) {
+            var closed=existing.get();
+            if(closed.status()!=TradeStatus.REJECTED && closed.status()!=TradeStatus.REVOKED) {
+                throw new ApiException(HttpStatus.CONFLICT,"RELATIONSHIP_EXISTS","A relationship for these companies already exists.");
+            }
+            // A seller's share code is an explicit invitation; a cold re-application waits so a seller is not pestered.
+            if(request.invitationCode()==null && now.isBefore(closed.updatedAt().plus(REAPPLY_AFTER))) {
+                throw new ApiException(HttpStatus.CONFLICT,"REAPPLY_TOO_SOON","This seller can be asked again 30 days after the last decision.");
+            }
+            var previous=closed.status();
+            closed.reapply(actor,now);
+            relationships.flush();
+            events.saveAndFlush(new TradeEvent(closed,actor,buyerId,previous,"REAPPLIED",now));
+            return TradeMapper.toResponse(closed);
+        }
         var relationship=relationships.saveAndFlush(new TradeRelationship(buyerId,sellerId,actor,now));
         events.saveAndFlush(new TradeEvent(relationship,actor,buyerId,null,"APPLIED",now));
         return TradeMapper.toResponse(relationship);
