@@ -1,0 +1,13 @@
+target/
+.idea/
+.vscode/
+.env
+*.log
+scripts/http-results.json
+scripts/synthetic-ids.json
+
+.refactor-backup/
+.refactor-stage/
+
+# Local tool settings (machine-specific)
+.claude/settings.local.json
