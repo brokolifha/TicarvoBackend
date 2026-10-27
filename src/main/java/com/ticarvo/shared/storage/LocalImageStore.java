@@ -9,7 +9,7 @@ import java.nio.file.*;
 /** Stores images under ticarvo.storage.image-dir; on the VPS this must be a persistent, backed-up volume (REL-M4-IMAGES). */
 @Component
 public class LocalImageStore implements ImageStore {
-    private static final String KEY = "[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}\\.(jpg|png)";
+    private static final String KEY = "[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}(_(320|1024))?\\.(jpg|png)";
     private final Path root;
     public LocalImageStore(@Value("${ticarvo.storage.image-dir:}") String directory) {
         if (directory.isBlank()) throw new IllegalStateException("ticarvo.storage.image-dir is required.");
@@ -24,6 +24,7 @@ public class LocalImageStore implements ImageStore {
             throw new UncheckedIOException(failure);
         }
     }
+    public boolean exists(String key) { return Files.isRegularFile(resolve(key)); }
     public byte[] get(String key) {
         try {
             return Files.readAllBytes(resolve(key));

@@ -209,6 +209,7 @@ public class CatalogService {
         var image=images.saveAndFlush(new ProductImage(id,seller,count,processed.contentType(),processed.bytes().length,
             processed.width(),processed.height(),clock.instant()));
         store.put(image.storageKey(),processed.bytes());
+        processed.variants().forEach((size,bytes)->store.put(image.storageKey(size),bytes));
         p.touch(clock.instant());
         audit(p,actor,"IMAGE_ADDED");
         return owner(p);
@@ -223,10 +224,11 @@ public class CatalogService {
         images.flush();
         var rest=images.findByProductIdOrderByPositionAsc(id);
         for(int i=0;i<rest.size();i++) rest.get(i).moveTo(i);
-        String key=image.storageKey();
-        // Delete the file only once the row is gone for good; a failed commit leaves the image intact.
+        var keys=new ArrayList<String>(List.of(image.storageKey()));
+        ProductImages.SIZES.forEach(size->keys.add(image.storageKey(size)));
+        // Delete the files only once the row is gone for good; a failed commit leaves the image intact.
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() { store.delete(key); }
+            @Override public void afterCommit() { keys.forEach(store::delete); }
         });
         p.touch(clock.instant());
         audit(p,actor,"IMAGE_REMOVED");
@@ -249,10 +251,10 @@ public class CatalogService {
         audit(p,actor,"IMAGES_REORDERED");
         return owner(p);
     }
-    public CatalogDtos.ImageContent ownerImage(UUID seller,UUID id,UUID imageId,Authentication auth) {
+    public CatalogDtos.ImageContent ownerImage(UUID seller,UUID id,UUID imageId,Integer size,Authentication auth) {
         authorize(seller,seller,auth,CATALOG_READ);
         product(seller,id);
-        return content(images,store,id,imageId);
+        return content(images,store,id,imageId,size);
     }
 
     /** Unknown and unapproved sellers must be indistinguishable to the buyer (M3-REVIEW-01). */
@@ -280,10 +282,10 @@ public class CatalogService {
         return ProductMapper.buyer(p,imageIds(images,List.of(p)).getOrDefault(p.id(),List.of()));
     }
     /** Same visibility as buyerGet: private product images are as confidential as the price. */
-    public CatalogDtos.ImageContent buyerImage(UUID buyer,UUID seller,UUID id,UUID imageId,Authentication auth) {
+    public CatalogDtos.ImageContent buyerImage(UUID buyer,UUID seller,UUID id,UUID imageId,Integer size,Authentication auth) {
         authorizeBuyer(buyer,seller,auth);
         products.buyerDetail(id,seller,buyer).orElseThrow(CatalogService::notFound);
-        return content(images,store,id,imageId);
+        return content(images,store,id,imageId,size);
     }
 
     static Pageable page(int page,int size) {
@@ -307,9 +309,14 @@ public class CatalogService {
         return images.findByProductIdInOrderByPositionAsc(page.stream().map(Product::id).toList()).stream()
             .collect(Collectors.groupingBy(ProductImage::productId,Collectors.mapping(ProductImage::id,Collectors.toList())));
     }
-    static CatalogDtos.ImageContent content(ProductImageRepository images,ImageStore store,UUID productId,UUID imageId) {
+    /** size null: the original; 320 or 1024: that copy, or the original when it is already that small or predates B-05. */
+    static CatalogDtos.ImageContent content(ProductImageRepository images,ImageStore store,UUID productId,UUID imageId,Integer size) {
+        if(size!=null&&!ProductImages.SIZES.contains(size)) {
+            throw error(HttpStatus.BAD_REQUEST,"VALIDATION_FAILED","Image size must be one of "+ProductImages.SIZES+".");
+        }
         var image=images.findByIdAndProductId(imageId,productId).orElseThrow(CatalogService::imageNotFound);
-        return new CatalogDtos.ImageContent(image.contentType(),store.get(image.storageKey()));
+        String key=size!=null&&store.exists(image.storageKey(size)) ? image.storageKey(size) : image.storageKey();
+        return new CatalogDtos.ImageContent(image.contentType(),store.get(key));
     }
     private UUID category(UUID categoryId) {
         if(categoryId==null) return null;

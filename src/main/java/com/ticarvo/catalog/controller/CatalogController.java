@@ -44,8 +44,9 @@ public class CatalogController {
         return catalog.removeImage(sellerId,productId,imageId,expectedVersion,auth);
     }
     @GetMapping("/{productId}/images/{imageId}")
-    public ResponseEntity<byte[]> image(@PathVariable UUID sellerId,@PathVariable UUID productId,@PathVariable UUID imageId,Authentication auth) {
-        return PublicCatalogController.image(catalog.ownerImage(sellerId,productId,imageId,auth));
+    public ResponseEntity<byte[]> image(@PathVariable UUID sellerId,@PathVariable UUID productId,@PathVariable UUID imageId,
+            @RequestParam(required=false) Integer size,Authentication auth) {
+        return PublicCatalogController.image(catalog.ownerImage(sellerId,productId,imageId,size,auth));
     }
     @GetMapping("/{productId}")
     public CatalogDtos.Owner get(@PathVariable UUID sellerId,@PathVariable UUID productId,Authentication auth) {

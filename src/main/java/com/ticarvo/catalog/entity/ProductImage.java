@@ -32,7 +32,9 @@ public class ProductImage {
     public String contentType() { return contentType; }
     public void moveTo(int position) { this.position = position; }
     /** Built only from server-generated UUIDs, never from client input. */
-    public String storageKey() {
-        return sellerCompanyId + "/" + productId + "/" + id + ("image/png".equals(contentType) ? ".png" : ".jpg");
+    public String storageKey() { return storageKey(null); }
+    /** The resized copy for a longest-side {@code size}, or the original when size is null (B-05). */
+    public String storageKey(Integer size) {
+        return sellerCompanyId + "/" + productId + "/" + id + (size == null ? "" : "_" + size) + ("image/png".equals(contentType) ? ".png" : ".jpg");
     }
 }

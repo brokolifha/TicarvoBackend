@@ -16,7 +16,9 @@ import java.io.IOException;
 final class ProductImages {
     static final int MAX_BYTES = 5 * 1024 * 1024;
     static final int MAX_SIDE = 4000;
-    record Processed(String contentType, byte[] bytes, int width, int height) {}
+    /** Longest-side sizes served with ?size= (B-05); a copy exists only when the original is larger. */
+    static final java.util.List<Integer> SIZES = java.util.List.of(320, 1024);
+    record Processed(String contentType, byte[] bytes, int width, int height, java.util.Map<Integer, byte[]> variants) {}
     static { ImageIO.setUseCache(false); }
     private ProductImages() {}
 
@@ -34,9 +36,11 @@ final class ProductImages {
                 // Checked before decoding, so a tiny file cannot expand into a huge bitmap.
                 if (width < 1 || height < 1 || width > MAX_SIDE || height > MAX_SIDE) throw invalid();
                 BufferedImage image = reader.read(0);
-                var out = new ByteArrayOutputStream();
-                if (format.equals("jpeg")) writeJpeg(image, out); else ImageIO.write(image, "png", out);
-                return new Processed(format.equals("jpeg") ? "image/jpeg" : "image/png", out.toByteArray(), width, height);
+                var variants = new java.util.LinkedHashMap<Integer, byte[]>();
+                for (int size : SIZES) {
+                    if (Math.max(width, height) > size) variants.put(size, encode(scale(image, size), format));
+                }
+                return new Processed(format.equals("jpeg") ? "image/jpeg" : "image/png", encode(image, format), width, height, variants);
             } finally {
                 reader.dispose();
             }
@@ -45,6 +49,26 @@ final class ProductImages {
         } catch (IOException | RuntimeException unreadable) {
             throw invalid();
         }
+    }
+    private static byte[] encode(BufferedImage image, String format) throws IOException {
+        var out = new ByteArrayOutputStream();
+        if (format.equals("jpeg")) writeJpeg(image, out); else ImageIO.write(image, "png", out);
+        return out.toByteArray();
+    }
+    /** Fits the longest side to {@code size}, keeping the aspect ratio and any transparency. */
+    private static BufferedImage scale(BufferedImage image, int size) {
+        double ratio = (double) size / Math.max(image.getWidth(), image.getHeight());
+        int w = Math.max(1, (int) Math.round(image.getWidth() * ratio)), h = Math.max(1, (int) Math.round(image.getHeight() * ratio));
+        var scaled = new BufferedImage(w, h, image.getColorModel().hasAlpha() ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
+        var g = scaled.createGraphics();
+        try {
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+            g.drawImage(image, 0, 0, w, h, null);
+        } finally {
+            g.dispose();
+        }
+        return scaled;
     }
     private static void writeJpeg(BufferedImage image, ByteArrayOutputStream out) throws IOException {
         var writer = ImageIO.getImageWritersByFormatName("jpeg").next();

@@ -4,5 +4,6 @@ package com.ticarvo.shared.storage;
 public interface ImageStore {
     void put(String key, byte[] content);
     byte[] get(String key);
+    boolean exists(String key);
     void delete(String key);
 }

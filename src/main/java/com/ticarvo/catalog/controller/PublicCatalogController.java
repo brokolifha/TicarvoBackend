@@ -23,8 +23,8 @@ public class PublicCatalogController {
         return catalog.get(productId);
     }
     @GetMapping("/products/{productId}/images/{imageId}")
-    public ResponseEntity<byte[]> image(@PathVariable UUID productId,@PathVariable UUID imageId) {
-        return image(catalog.image(productId,imageId));
+    public ResponseEntity<byte[]> image(@PathVariable UUID productId,@PathVariable UUID imageId,@RequestParam(required=false) Integer size) {
+        return image(catalog.image(productId,imageId,size));
     }
     @GetMapping("/categories")
     public List<CatalogDtos.CategoryNode> categories() { return catalog.categories(); }

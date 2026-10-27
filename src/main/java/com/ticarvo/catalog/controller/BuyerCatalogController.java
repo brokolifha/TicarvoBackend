@@ -23,7 +23,7 @@ public class BuyerCatalogController {
     }
     @GetMapping("/{productId}/images/{imageId}")
     public ResponseEntity<byte[]> image(@PathVariable UUID buyerId,@PathVariable UUID sellerId,@PathVariable UUID productId,
-            @PathVariable UUID imageId,Authentication auth) {
-        return PublicCatalogController.image(catalog.buyerImage(buyerId,sellerId,productId,imageId,auth));
+            @PathVariable UUID imageId,@RequestParam(required=false) Integer size,Authentication auth) {
+        return PublicCatalogController.image(catalog.buyerImage(buyerId,sellerId,productId,imageId,size,auth));
     }
 }

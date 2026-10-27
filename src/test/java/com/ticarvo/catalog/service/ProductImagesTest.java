@@ -30,6 +30,20 @@ class ProductImagesTest {
         assertInvalid(encode("png",ProductImages.MAX_SIDE+1,1),"width over the limit");
         assertInvalid(encode("gif",10,10),"GIF is not accepted");
     }
+    /** B-05: smaller copies keep the format and the aspect ratio; an image already small gets none. */
+    @Test void resizedCopiesForLargeImagesOnly() throws Exception {
+        var large=ProductImages.process(encode("png",2000,1000));
+        assertEquals(java.util.Set.of(320,1024),large.variants().keySet());
+        var thumb=ImageIO.read(new java.io.ByteArrayInputStream(large.variants().get(320)));
+        assertEquals(320,thumb.getWidth()); assertEquals(160,thumb.getHeight());
+        assertTrue(large.variants().get(320).length<large.bytes().length);
+        var medium=ProductImages.process(encode("jpg",600,900));
+        assertEquals(java.util.Set.of(320),medium.variants().keySet(),"no 1024 copy of a 900 px image");
+        var copy=medium.variants().get(320);
+        assertEquals(0xd8,copy[1]&0xff,"a JPEG copy stays JPEG");
+        assertEquals(213,ImageIO.read(new java.io.ByteArrayInputStream(copy)).getWidth());
+        assertTrue(ProductImages.process(encode("png",100,100)).variants().isEmpty());
+    }
     static void assertInvalid(byte[] input,String... why) {
         assertEquals("IMAGE_INVALID",assertThrows(ApiException.class,()->ProductImages.process(input),String.join(" ",why)).code());
     }

@@ -2969,6 +2969,19 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Longest side of a resized copy (B-05); falls back to the original when the image is already smaller. Omit for the original",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                320,
+                1024
+              ]
+            }
           }
         ],
         "responses": {
@@ -3160,6 +3173,19 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Longest side of a resized copy (B-05); falls back to the original when the image is already smaller. Omit for the original",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                320,
+                1024
+              ]
+            }
           }
         ],
         "responses": {
@@ -3294,6 +3320,19 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Longest side of a resized copy (B-05); falls back to the original when the image is already smaller. Omit for the original",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                320,
+                1024
+              ]
             }
           }
         ],

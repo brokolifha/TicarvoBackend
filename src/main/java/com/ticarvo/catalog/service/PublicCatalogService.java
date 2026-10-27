@@ -38,9 +38,9 @@ public class PublicCatalogService {
         return ProductMapper.publicDto(p,companies.summary(p.seller()).name(),
             CatalogService.imageIds(images,List.of(p)).getOrDefault(p.id(),List.of()));
     }
-    public CatalogDtos.ImageContent image(UUID id,UUID imageId) {
+    public CatalogDtos.ImageContent image(UUID id,UUID imageId,Integer size) {
         products.publicDetail(id).orElseThrow(CatalogService::notFound);
-        return CatalogService.content(images,store,id,imageId);
+        return CatalogService.content(images,store,id,imageId,size);
     }
     public List<CatalogDtos.CategoryNode> categories() {
         var all=categories.findAllByOrderByPositionAscCodeAsc();

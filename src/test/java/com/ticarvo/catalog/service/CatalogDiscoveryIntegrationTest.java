@@ -115,6 +115,9 @@ class CatalogDiscoveryIntegrationTest {
         assertEquals(200,stored.statusCode()); assertEquals("image/jpeg",stored.headers().firstValue("Content-Type").orElse(""));
         assertTrue(stored.headers().firstValue("Cache-Control").orElse("").contains("no-store"));
         assertFalse(new String(stored.body(),StandardCharsets.ISO_8859_1).contains("GPS-SECRET"),"metadata stripped before storage");
+        // B-05: a small image has no resized copy, so ?size falls back to the original; other sizes are rejected.
+        assertArrayEquals(stored.body(),bytes(m.seller(),c+"/"+id+"/images/"+first+"?size=320").body());
+        assertEquals(400,bytes(m.seller(),c+"/"+id+"/images/"+first+"?size=500").statusCode());
         try(var files=Files.walk(IMAGES)) {
             var productFiles=files.filter(Files::isRegularFile).filter(f->f.toString().contains(id)).toList();
             assertEquals(5,productFiles.size());
