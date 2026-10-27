@@ -148,6 +148,34 @@ class CatalogDiscoveryIntegrationTest {
         assertEquals(0L,jdbc.queryForObject("SELECT COUNT(*) FROM catalog_product_images WHERE product_id=? AND position NOT BETWEEN 0 AND 3",Long.class,id));
     }
 
+    /** C-09: one search over every approved seller, never wider than the per-seller buyer catalogs. */
+    @Test void buyerSearchesAllApprovedSellersAtOnce() throws Exception {
+        var m=market();
+        publish(m,product("C9-A","Ortak Kalem",category("kirtasiye")),true,false);
+        publish(m,product("C9-H","Ortak Gizli",category("kirtasiye")),false,false);
+        UUID second=sellerFor(m,"Ortak Defter","C9-B",false), revoked=sellerFor(m,"Ortak Silgi","C9-R",true);
+        var result=json.readTree(send(m.buyer(),"GET","/api/v1/companies/"+m.b()+"/catalog/products?q=Ortak",null).body());
+        var names=new HashSet<String>(); result.get("content").forEach(i->names.add(i.get("product").get("name").asString()));
+        assertEquals(Set.of("Ortak Kalem","Ortak Defter"),names,"no ungranted product, no revoked seller");
+        result.get("content").forEach(i->assertFalse(i.get("sellerName").asString().isBlank()));
+        assertEquals(1,total(m.buyer(),"/api/v1/companies/"+m.b()+"/catalog/products?q=C9-B"),"SKU search like the per-seller list");
+        assertEquals("404 COMPANY_NOT_FOUND",outcome(request(m.outsider(),"GET","/api/v1/companies/"+m.b()+"/catalog/products",null,null)));
+        assertNotEquals(second,revoked);
+    }
+    /** A further seller the market's buyer trades with, holding one granted product; optionally revoked afterwards. */
+    UUID sellerFor(Market m,String name,String sku,boolean revoke) throws Exception {
+        var owner=user(); UUID s=company(owner);
+        assertEquals(200,send(owner,"PUT","/api/v1/companies/"+s+"/seller-profile","{\"listed\":true}").statusCode());
+        var rel=json.readTree(send(m.buyer(),"POST","/api/v1/companies/"+m.b()+"/trade-relationships","{\"sellerCompanyId\":\""+s+"\"}").body());
+        long rv=json.readTree(send(owner,"POST","/api/v1/companies/"+s+"/trade-relationships/"+rel.get("id").asString()+"/approve","{\"expectedVersion\":0}").body()).get("version").asLong();
+        var p=json.readTree(send(owner,"POST","/api/v1/companies/"+s+"/products",product(sku,name,category("kirtasiye"))).body());
+        String c="/api/v1/companies/"+s+"/products/"+p.get("id").asString();
+        long v=json.readTree(send(owner,"PUT",c+"/buyers","{\"expectedVersion\":"+p.get("version").asLong()+",\"buyerCompanyIds\":[\""+m.b()+"\"]}").body()).get("productVersion").asLong();
+        assertEquals(200,send(owner,"POST",c+"/publish","{\"expectedVersion\":"+v+"}").statusCode());
+        if(revoke) assertEquals(200,send(owner,"POST","/api/v1/companies/"+s+"/trade-relationships/"+rel.get("id").asString()+"/revoke","{\"expectedVersion\":"+rv+"}").statusCode());
+        return s;
+    }
+
     /** A-02: catalog reads share the seller lock, so a reader never waits for another reader. */
     @Test void catalogReadsDoNotQueueBehindEachOther() throws Exception {
         var m=market();

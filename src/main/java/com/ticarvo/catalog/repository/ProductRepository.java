@@ -41,6 +41,17 @@ public interface ProductRepository extends JpaRepository<Product,UUID> {
         + " and exists(select g from ProductGrant g where g.productId=p.id and g.buyerCompanyId=:buyer)")
     Optional<Product> buyerDetail(@Param("id") UUID id,@Param("seller") UUID seller,@Param("buyer") UUID buyer);
 
+    // C-09: one search over every seller that still trades with this buyer. The relationship is re-checked here
+    // because a revocation leaves the grants in place; like ACTIVE_SELLER this is a read-only cross-module filter.
+    @Query("select p from Product p where p.status=com.ticarvo.catalog.model.ProductStatus.PUBLISHED" + ACTIVE_SELLER
+        + " and exists(select g from ProductGrant g where g.productId=p.id and g.buyerCompanyId=:buyer)"
+        + " and exists(select r from TradeRelationship r where r.buyerCompanyId=:buyer and r.sellerCompanyId=p.sellerCompanyId"
+        + " and r.status=com.ticarvo.trade.model.TradeStatus.APPROVED)"
+        + " and (:pattern is null or p.name like :pattern escape '!' or p.sku like :pattern escape '!')"
+        + " and (:anyCategory = true or p.categoryId in :categories)")
+    Page<Product> buyerSearch(@Param("buyer") UUID buyer,@Param("pattern") String pattern,
+        @Param("anyCategory") boolean anyCategory,@Param("categories") Collection<UUID> categories,Pageable page);
+
     // Same visibility as buyerDetail, for the order checkout (ADR-009).
     @Query("select p from Product p where p.id in :ids and p.sellerCompanyId=:seller"
         + " and p.status=com.ticarvo.catalog.model.ProductStatus.PUBLISHED" + ACTIVE_SELLER

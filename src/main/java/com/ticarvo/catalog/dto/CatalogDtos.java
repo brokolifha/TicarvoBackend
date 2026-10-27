@@ -37,6 +37,8 @@ public final class CatalogDtos {
     public record PublicProduct(UUID id,UUID sellerCompanyId,String sellerName,String name,String description,UUID categoryId,List<UUID> imageIds,
             Price retailPrice) {}
     public record Buyers(long productVersion,List<UUID> buyerCompanyIds) {}
+    /** C-09: a hit of the buyer's search over all its sellers. */
+    public record BuyerSearchItem(String sellerName,Buyer product) {}
     public record Page<T>(List<T> content,int page,int size,long totalElements) {}
     public record CategoryNode(UUID id,String code,String name,List<CategoryNode> children) {}
     /** Image bytes for the controller; not serialized as JSON. */

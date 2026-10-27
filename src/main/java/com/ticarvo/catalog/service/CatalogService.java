@@ -276,6 +276,20 @@ public class CatalogService {
         return new CatalogDtos.Page<>(result.map(p->ProductMapper.buyer(p,imageIds.getOrDefault(p.id(),List.of()))).getContent(),
             page,size,result.getTotalElements());
     }
+    /**
+     * C-09: search over every approved seller. Several sellers, so no seller lock: a revocation committing during
+     * this read may still show its products once, the same as any read-committed list.
+     */
+    public CatalogDtos.Page<CatalogDtos.BuyerSearchItem> buyerSearch(UUID buyer,String q,UUID categoryId,int page,int size,Authentication auth) {
+        UUID actor=companies.requireMember(buyer,auth);
+        limits.check(CATALOG_READ,actor);
+        var filter=filter(q,categoryId,categories);
+        var result=products.buyerSearch(buyer,filter.pattern(),filter.anyCategory(),filter.categories(),page(page,size));
+        var imageIds=imageIds(images,result.getContent());
+        var names=companies.summaries(result.stream().map(Product::seller).distinct().toList());
+        return new CatalogDtos.Page<>(result.map(p->new CatalogDtos.BuyerSearchItem(names.get(p.seller()).name(),
+            ProductMapper.buyer(p,imageIds.getOrDefault(p.id(),List.of())))).getContent(),page,size,result.getTotalElements());
+    }
     public CatalogDtos.Buyer buyerGet(UUID buyer,UUID seller,UUID id,Authentication auth) {
         authorizeBuyer(buyer,seller,auth);
         var p=products.buyerDetail(id,seller,buyer).orElseThrow(CatalogService::notFound);
