@@ -38,6 +38,7 @@ class AccountLifecycleIntegrationTest {
         registry.add("ticarvo.mail.outbox-dir",OUTBOX::toString);
     }
     @Autowired JdbcTemplate jdbc;
+    @Autowired IdentityService identity;
     @Autowired ObjectMapper json;
     @Value("${local.server.port}") int port;
 
@@ -110,6 +111,35 @@ class AccountLifecycleIntegrationTest {
         assertEquals("429 RATE_LIMITED",status);
     }
 
+    /** C-03: name, password and email can be changed while signed in; credentials need the current password. */
+    @Test void accountSettings() throws Exception {
+        HttpClient phone=client(), laptop=client();
+        String email=directUser();
+        assertEquals("204",login(phone,email,PASSWORD)); assertEquals("204",login(laptop,email,PASSWORD));
+        var renamed=request(phone,"PUT","/api/v1/auth/me","{\"displayName\":\"Yeni Ad\"}",csrf(phone),"application/json");
+        assertEquals("Yeni Ad",json.readTree(renamed.body()).get("displayName").asString());
+
+        String next="Another-Synthetic-M4-Pass!7";
+        assertEquals("403 CURRENT_PASSWORD_INVALID",post(phone,"/api/v1/auth/password","{\"currentPassword\":\"wrong-password-123\",\"newPassword\":\""+next+"\"}"));
+        assertEquals("204",post(phone,"/api/v1/auth/password","{\"currentPassword\":\""+PASSWORD+"\",\"newPassword\":\""+next+"\"}"));
+        assertEquals(200,get(phone,"/api/v1/auth/me").statusCode(),"the device that changed it stays signed in");
+        assertEquals(401,get(laptop,"/api/v1/auth/me").statusCode(),"other devices are signed out");
+        assertTrue(read(mails(email).getLast()).contains("parolanız değişti"));
+        assertEquals("401 INVALID_CREDENTIALS",login(client(),email,PASSWORD)); assertEquals("204",login(client(),email,next));
+
+        String newEmail="m4-new-"+UUID.randomUUID()+"@example.invalid";
+        assertEquals("202",post(phone,"/api/v1/auth/email-change","{\"newEmail\":\""+newEmail+"\",\"currentPassword\":\""+next+"\"}"));
+        assertTrue(read(mails(email).getLast()).contains("değiştirme isteği"),"the old address is told");
+        String code=latestToken(newEmail);
+        var stranger=client(); String other=directUser(); assertEquals("204",login(stranger,other,PASSWORD));
+        assertEquals("400 TOKEN_INVALID",post(stranger,"/api/v1/auth/email-change/confirm","{\"token\":\""+code+"\"}"),"only the account that asked");
+        assertEquals("204",post(phone,"/api/v1/auth/email-change/confirm","{\"token\":\""+code+"\"}"),"the stranger's failed try did not spend the code");
+        assertEquals(401,get(phone,"/api/v1/auth/me").statusCode(),"the session ends with the old address");
+        assertEquals("401 INVALID_CREDENTIALS",login(client(),email,next)); assertEquals("204",login(client(),newEmail,next));
+        assertEquals("202",post(stranger,"/api/v1/auth/email-change","{\"newEmail\":\""+newEmail+"\",\"currentPassword\":\""+PASSWORD+"\"}"),"a taken address answers the same");
+        assertTrue(read(mails(newEmail).getLast()).contains("zaten kullanıldığı"),"its owner is told instead");
+    }
+
     /** A-04: sign-up answers the same for new and existing addresses; only the address owner hears about the attempt. */
     @Test void signUpDoesNotRevealExistingAccounts() throws Exception {
         var client=client();
@@ -126,6 +156,12 @@ class AccountLifecycleIntegrationTest {
         assertEquals(1L,jdbc.queryForObject("SELECT COUNT(*) FROM app_users WHERE email=?",Long.class,email),"no second account");
     }
 
+    /** A verified account created without the sign-up endpoint, whose per-IP limit these tests would otherwise exhaust. */
+    String directUser() {
+        var created=identity.register(new com.ticarvo.identity.dto.RegisterRequest("m4-"+UUID.randomUUID()+"@example.invalid",PASSWORD,"Synthetic M4"));
+        jdbc.update("UPDATE app_users SET email_verified_at=UTC_TIMESTAMP(6) WHERE id=?",created.id().toString());
+        return created.email();
+    }
     String register(HttpClient client) throws Exception {
         String email="m4-"+UUID.randomUUID()+"@example.invalid";
         assertEquals("202",post(client,"/api/v1/auth/register","{\"email\":\""+email+"\",\"password\":\""+PASSWORD+"\",\"displayName\":\"Synthetic M4\"}"));

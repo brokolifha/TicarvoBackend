@@ -44,6 +44,9 @@ public class AppUser {
     public boolean isEmailVerified() { return emailVerifiedAt != null; }
     public void markEmailVerified(Instant now) { if (emailVerifiedAt == null) emailVerifiedAt = now; }
     public void changePassword(String passwordHash) { this.passwordHash = passwordHash; }
+    public void rename(String displayName) { this.displayName = displayName; }
+    /** The new address was proven by a code mailed to it, so it counts as verified. */
+    public void changeEmail(String email, Instant now) { this.email = email; this.emailVerifiedAt = now; }
     public boolean isMfaEnabled() { return mfaEnabled; }
     public String getMfaSecret() { return mfaSecret; }
     public void startMfaSetup(String encryptedSecret) { mfaSecret = encryptedSecret; mfaEnabled = false; mfaLastStep = null; }

@@ -36,8 +36,12 @@ public class AccountService {
         this.users = users; this.tokens = tokens; this.mail = mail; this.passwords = passwords;
         this.sessions = sessions; this.clock = clock;
         this.registrationNotices = new BoundedRateLimiter(clock, Duration.ofMinutes(15), 10000);
+        this.passwordChecks = new BoundedRateLimiter(clock, Duration.ofMinutes(15), 10000);
     }
     private final BoundedRateLimiter registrationNotices;
+    /** Current-password checks in account settings: 5 per user per 15 minutes. */
+    private final BoundedRateLimiter passwordChecks;
+    static final Duration EMAIL_CHANGE_TTL = Duration.ofHours(1);
 
     @Transactional
     public void sendVerification(AppUser user) {
@@ -80,6 +84,66 @@ public class AccountService {
         // After commit, so a login racing the reset with the old password cannot outlive it.
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() { revokeAllSessions(email); }
+        });
+    }
+    // ---- C-03 account settings ----
+    /** Other devices are logged out; the session that made the change stays. */
+    @Transactional
+    public void changePassword(String email, String currentPassword, String newPassword, String keepSessionId) {
+        var user = withCurrentPassword(email, currentPassword);
+        IdentityService.requirePasswordBytes(newPassword);
+        user.changePassword(passwords.encode(newPassword));
+        tokens.deleteAll(user.getId(), Purpose.PASSWORD_RESET);
+        afterCommit(() -> sessions.findByPrincipalName(email).keySet().stream().filter(id -> !id.equals(keepSessionId)).forEach(sessions::deleteById));
+        mail.send(email, "Ticarvo parolanız değişti", "Hesabınızın parolası değiştirildi. Bunu siz yapmadıysanız hemen parolanızı sıfırlayın.");
+    }
+    /** Always 202: an address already in use is told to its owner, not to the requester. */
+    @Transactional
+    public void requestEmailChange(String email, String newEmail, String currentPassword) {
+        var user = withCurrentPassword(email, currentPassword);
+        String target = IdentityService.normalizeEmail(newEmail);
+        if (target.equals(user.getEmail())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "The new address is the current one.");
+        }
+        if (users.existsByEmail(target)) {
+            mail.send(target, "Ticarvo e-posta değişikliği", "Bir Ticarvo hesabı e-posta adresini bu adrese taşımak istedi; adres zaten kullanıldığı için işlem yapılmadı.");
+            return;
+        }
+        var now = clock.instant();
+        tokens.deleteAll(user.getId(), Purpose.EMAIL_CHANGE);
+        String token = SecureTokens.generate();
+        tokens.saveAndFlush(AccountToken.emailChange(user.getId(), target, SecureTokens.sha256Hex(token), now, now.plus(EMAIL_CHANGE_TTL)));
+        mail.send(email, "Ticarvo e-posta değişikliği isteği", "Hesabınızın e-posta adresini değiştirme isteği alındı. Bunu siz yapmadıysanız parolanızı değiştirin.");
+        mail.send(target, "Ticarvo yeni e-posta adresinizi doğrulayın", "Yeni adresinizi onaylamak için bu kodu kullanın (1 saat geçerli):\n" + token);
+    }
+    /** Needs the signed-in account that asked; afterwards every session ends and the new address is the login. */
+    @Transactional
+    public void confirmEmailChange(String email, String token) {
+        var user = users.lockByEmail(email).orElseThrow(AccountService::invalidToken);
+        var stored = consume(token, Purpose.EMAIL_CHANGE);
+        if (!stored.getUserId().equals(user.getId())) throw invalidToken();
+        if (users.existsByEmail(stored.getNewEmail())) {
+            throw new ApiException(HttpStatus.CONFLICT, "EMAIL_TAKEN", "This address is already in use.");
+        }
+        user.changeEmail(stored.getNewEmail(), clock.instant());
+        // Sessions are indexed by the old address, which no longer logs in.
+        afterCommit(() -> revokeAllSessions(email));
+        mail.send(email, "Ticarvo e-posta adresiniz değişti", "Hesabınızın e-posta adresi değiştirildi. Bunu siz yapmadıysanız destekle iletişime geçin.");
+    }
+    private AppUser withCurrentPassword(String email, String currentPassword) {
+        var user = users.lockByEmail(email).orElseThrow(() ->
+            new ApiException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "Authentication is required."));
+        if (!passwordChecks.allow(user.getId().toString(), 5)) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "Please try again later.");
+        }
+        if (!passwords.matches(currentPassword, user.getPasswordHash())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "CURRENT_PASSWORD_INVALID", "The current password is not correct.");
+        }
+        return user;
+    }
+    private static void afterCommit(Runnable action) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() { action.run(); }
         });
     }
     public void revokeAllSessions(String email) {

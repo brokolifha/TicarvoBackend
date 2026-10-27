@@ -62,6 +62,12 @@ public class IdentityService implements CurrentUserProvider, UserDirectory {
     public void lock(UUID userId) {
         users.lockById(userId).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "Authentication is required."));
     }
+    @Transactional
+    public UserResponse rename(Authentication authentication, String displayName) {
+        var user = current(authentication);
+        user.rename(displayName.strip());
+        return response(user);
+    }
     @Transactional(readOnly = true)
     public UserResponse currentUser(Authentication authentication) { return response(current(authentication)); }
     private AppUser current(Authentication authentication) {

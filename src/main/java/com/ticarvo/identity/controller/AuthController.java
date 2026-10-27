@@ -30,6 +30,27 @@ public class AuthController {
     public void register(@Valid @RequestBody RegisterRequest request) { identity.requestRegistration(request); }
     @GetMapping("/me")
     public UserResponse me(Authentication authentication) { return identity.currentUser(authentication); }
+    // C-03 account settings.
+    @PutMapping("/me")
+    public UserResponse rename(@Valid @RequestBody AccountRequests.Profile request, Authentication authentication) {
+        return identity.rename(authentication, request.displayName());
+    }
+    @PostMapping("/password") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody AccountRequests.PasswordChange request, Authentication authentication, HttpServletRequest http) {
+        var session = http.getSession(false);
+        accounts.changePassword(authentication.getName(), request.currentPassword(), request.newPassword(), session == null ? null : session.getId());
+    }
+    @PostMapping("/email-change") @ResponseStatus(HttpStatus.ACCEPTED)
+    public void requestEmailChange(@Valid @RequestBody AccountRequests.EmailChange request, Authentication authentication) {
+        accounts.requestEmailChange(authentication.getName(), request.newEmail(), request.currentPassword());
+    }
+    /** The session ends with the old address; the user logs in again with the new one. */
+    @PostMapping("/email-change/confirm") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmEmailChange(@Valid @RequestBody AccountRequests.Token request, Authentication authentication, HttpServletRequest http) {
+        accounts.confirmEmailChange(authentication.getName(), request.token());
+        var session = http.getSession(false);
+        if (session != null) session.invalidate();
+    }
     @PostMapping("/email-verification") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void verifyEmail(@Valid @RequestBody AccountRequests.Token request) { accounts.verifyEmail(request.token()); }
     @PostMapping("/email-verification/resend") @ResponseStatus(HttpStatus.ACCEPTED)

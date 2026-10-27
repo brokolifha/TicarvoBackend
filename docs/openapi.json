@@ -1105,6 +1105,41 @@
             }
           }
         }
+      },
+      "put": {
+        "summary": "C-03: change the display name",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem: 400; 401; 403 CSRF.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/companies": {
@@ -5504,6 +5539,96 @@
           }
         }
       }
+    },
+    "/auth/password": {
+      "post": {
+        "summary": "C-03: change the password with the current one; other sessions end, this one stays; a notice is mailed",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Changed"
+          },
+          "default": {
+            "description": "Problem: 400; 401; 403 CSRF/CURRENT_PASSWORD_INVALID; 429 after 5 wrong tries in 15 minutes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/email-change": {
+      "post": {
+        "summary": "C-03: ask to move the login to a new address; a code goes to the new address, a notice to the old one. Always 202 (a taken address is told to its owner)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; check the new mailbox"
+          },
+          "default": {
+            "description": "Problem: 400; 401; 403 CSRF/CURRENT_PASSWORD_INVALID; 429.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/email-change/confirm": {
+      "post": {
+        "summary": "C-03: confirm with the code (1 hour, only by the account that asked); every session ends, log in again with the new address",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Changed"
+          },
+          "default": {
+            "description": "Problem: 400 TOKEN_INVALID; 401; 403 CSRF; 409 EMAIL_TAKEN.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7869,6 +7994,71 @@
             "type": "integer"
           }
         }
+      },
+      "ProfileUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
+      "PasswordChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "maxLength": 72
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 72
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "EmailChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "newEmail": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "currentPassword": {
+            "type": "string",
+            "maxLength": 72
+          }
+        },
+        "required": [
+          "newEmail",
+          "currentPassword"
+        ]
+      },
+      "TokenInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        },
+        "required": [
+          "token"
+        ]
       }
     }
   }

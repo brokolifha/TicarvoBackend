@@ -11,6 +11,14 @@ public final class AccountRequests {
         @Override public String toString() { return "MfaCode[REDACTED]"; }
     }
     public record EmailAddress(@NotBlank @Email @Size(max = 254) String email) {}
+    // C-03 account settings. Every change of credentials asks for the current password.
+    public record Profile(@NotBlank @Size(max = 100) String displayName) {}
+    public record PasswordChange(@NotBlank @Size(max = 72) String currentPassword, @NotBlank @Size(min = 12, max = 72) String newPassword) {
+        @Override public String toString() { return "PasswordChange[REDACTED]"; }
+    }
+    public record EmailChange(@NotBlank @Email @Size(max = 254) String newEmail, @NotBlank @Size(max = 72) String currentPassword) {
+        @Override public String toString() { return "EmailChange[REDACTED]"; }
+    }
     public record PasswordReset(@NotNull @Pattern(regexp = "[A-Za-z0-9_-]{43}") String token,
             @NotBlank @Size(min = 12, max = 72) String newPassword) {
         @Override public String toString() { return "PasswordReset[REDACTED]"; }
