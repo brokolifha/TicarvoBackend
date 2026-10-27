@@ -100,6 +100,7 @@ public class CatalogService {
         created.categorize(category);
         var retail=retail(request.retailPrice());
         created.retail(retail==null?null:retail.amount(),retail==null?null:retail.currency());
+        applyDetails(created,request.details());
         var p=products.saveAndFlush(created);
         audit(p,actor,"CREATED");
         return owner(p);
@@ -129,6 +130,7 @@ public class CatalogService {
         p.categorize(category);
         var retail=retail(request.retailPrice());
         p.retail(retail==null?null:retail.amount(),retail==null?null:retail.currency());
+        if(request.details()!=null) applyDetails(p,request.details());
         audit(p,actor,"EDITED");
         return owner(p);
     }
@@ -364,6 +366,22 @@ public class CatalogService {
         }
         return new Values(sku,name,description,new BigDecimal(price.amount().asString()).setScale(2),
             price.currency(),price.taxIncluded().asBoolean());
+    }
+    /** Missing values fall back to the product's current ones (the defaults on a new product). */
+    private static void applyDetails(Product p,CatalogDtos.DetailsInput d) {
+        if(d==null) return;
+        int vat=d.vatRate()==null?p.vatRate():d.vatRate();
+        if(!Set.of(0,1,10,20).contains(vat)) throw error(HttpStatus.BAD_REQUEST,"VALIDATION_FAILED","VAT rate must be 0, 1, 10 or 20.");
+        if(d.barcode()!=null&&!validGtin(d.barcode())) throw error(HttpStatus.BAD_REQUEST,"VALIDATION_FAILED","Barcode check digit is wrong.");
+        String brand=d.brand()==null||d.brand().isBlank()?null:d.brand().strip();
+        p.details(vat,d.unit()==null?p.unit():d.unit(),d.casePack()==null?p.casePack():d.casePack(),
+            d.minQuantity()==null?p.minQuantity():d.minQuantity(),d.barcode(),brand);
+    }
+    /** GTIN-8/12/13/14: weights 3 and 1 from the right, the last digit makes the sum a multiple of 10. */
+    static boolean validGtin(String code) {
+        int sum=0;
+        for(int i=code.length()-2,weight=3;i>=0;i--,weight=4-weight) sum+=(code.charAt(i)-'0')*weight;
+        return (10-sum%10)%10==code.charAt(code.length()-1)-'0';
     }
     private record Retail(BigDecimal amount,String currency) {}
     /** Same amount and currency rules as the B2B price; null means no consumer price. */

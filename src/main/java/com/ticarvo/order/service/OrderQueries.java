@@ -91,7 +91,8 @@ public class OrderQueries {
         }).toList();
     }
     private static OrderDtos.Line line(OrderLine l) {
-        return new OrderDtos.Line(l.lineNo(), l.productId(), l.sku(), l.name(), money(l.unitAmount()), l.taxIncluded(), l.quantity(), money(l.lineAmount()));
+        return new OrderDtos.Line(l.lineNo(), l.productId(), l.sku(), l.name(), money(l.unitAmount()), l.taxIncluded(), l.quantity(), money(l.lineAmount()),
+            l.vatRate(), l.unit());
     }
     private static OrderDtos.Event event(OrderEvent e) {
         return new OrderDtos.Event(e.action(), e.fromStatus(), e.toStatus(), e.note(), e.createdAt());

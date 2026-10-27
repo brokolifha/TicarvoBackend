@@ -120,6 +120,12 @@ public class CheckoutService {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "MIXED_CURRENCY", "All lines of one seller must share a currency.");
             }
             for (var line : group.lines()) {
+                var p = found.get(line.productId());
+                // Case pack and minimum are wholesale rules; consumer lookups report 1 and 1 (ADR-011).
+                if (line.quantity() < p.minQuantity() || line.quantity() % p.casePack() != 0) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "QUANTITY_NOT_ALLOWED", "Product " + p.id()
+                        + " sells in multiples of " + p.casePack() + ", at least " + p.minQuantity() + ".");
+                }
                 priceChanged |= new BigDecimal(line.expectedUnitPrice()).compareTo(found.get(line.productId()).amount()) != 0;
             }
             products.put(group.sellerCompanyId(), found);
@@ -146,7 +152,7 @@ public class CheckoutService {
                 var line = group.lines().get(i);
                 var product = found.get(line.productId());
                 lines.save(new OrderLine(order.id(), i + 1, product.id(), product.sku(), product.name(), product.amount().setScale(2),
-                    product.taxIncluded(), line.quantity(), amounts.get(i)));
+                    product.taxIncluded(), line.quantity(), amounts.get(i), product.vatRate(), product.unit()));
             }
             events.save(new OrderEvent(order.id(), actor, "PLACED", null, OrderStatus.PLACED, null, now));
         }

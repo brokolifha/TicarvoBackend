@@ -30,10 +30,16 @@ public class OrderLine {
     private int quantity;
     @Column(name = "line_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal lineAmount;
+    @Column(name = "vat_rate", nullable = false)
+    private int vatRate;
+    @Column(nullable = false, length = 10)
+    private String unit;
     protected OrderLine() {}
-    public OrderLine(UUID orderId, int lineNo, UUID productId, String sku, String name, BigDecimal unitAmount, boolean taxIncluded, int quantity, BigDecimal lineAmount) {
+    public OrderLine(UUID orderId, int lineNo, UUID productId, String sku, String name, BigDecimal unitAmount, boolean taxIncluded, int quantity, BigDecimal lineAmount,
+            int vatRate, String unit) {
         this.id = UUID.randomUUID(); this.orderId = orderId; this.lineNo = lineNo; this.productId = productId; this.sku = sku; this.name = name;
         this.unitAmount = unitAmount; this.taxIncluded = taxIncluded; this.quantity = quantity; this.lineAmount = lineAmount;
+        this.vatRate = vatRate; this.unit = unit;
     }
     public UUID orderId() { return orderId; }
     public int lineNo() { return lineNo; }
@@ -44,4 +50,6 @@ public class OrderLine {
     public boolean taxIncluded() { return taxIncluded; }
     public int quantity() { return quantity; }
     public BigDecimal lineAmount() { return lineAmount; }
+    public int vatRate() { return vatRate; }
+    public String unit() { return unit; }
 }

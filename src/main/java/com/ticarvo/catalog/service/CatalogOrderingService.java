@@ -17,11 +17,13 @@ public class CatalogOrderingService implements CatalogOrdering {
 
     public Map<UUID, OrderableProduct> orderable(UUID sellerId, UUID buyerId, Collection<UUID> productIds) {
         return products.buyerOrderable(productIds, sellerId, buyerId).stream().collect(Collectors.toMap(Product::id,
-            p -> new OrderableProduct(p.id(), p.sku(), p.name(), p.amount(), p.currency(), p.taxIncluded(), p.stockQuantity())));
+            p -> new OrderableProduct(p.id(), p.sku(), p.name(), p.amount(), p.currency(), p.taxIncluded(), p.stockQuantity(),
+            p.vatRate(), p.unit().name(), p.casePack(), p.minQuantity())));
     }
     public Map<UUID, OrderableProduct> retailOrderable(UUID sellerId, Collection<UUID> productIds) {
         return products.retailOrderable(productIds, sellerId).stream().collect(Collectors.toMap(Product::id,
-            p -> new OrderableProduct(p.id(), p.sku(), p.name(), p.retailAmount(), p.retailCurrency(), true, p.stockQuantity())));
+            p -> new OrderableProduct(p.id(), p.sku(), p.name(), p.retailAmount(), p.retailCurrency(), true, p.stockQuantity(),
+            p.vatRate(), p.unit().name(), 1, 1)));
     }
     public List<UUID> reserve(UUID sellerId, Map<UUID, Integer> quantities) {
         var tracked = owned(sellerId, quantities.keySet()).stream().filter(p -> p.stockQuantity() != null).toList();

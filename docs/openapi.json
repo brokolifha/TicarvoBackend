@@ -4409,7 +4409,7 @@
             }
           },
           "default": {
-            "description": "Problem: 400 VALIDATION_FAILED/REQUEST_INVALID/MIXED_CURRENCY; 401; 403 CSRF/COMPANY_SUSPENDED; 404 COMPANY_NOT_FOUND/PRODUCT_NOT_FOUND (one answer for every visibility reason); 409 PRICE_CHANGED/INSUFFICIENT_STOCK/IDEMPOTENCY_KEY_REUSED; 413; 429 quota.",
+            "description": "Problem: 400 VALIDATION_FAILED/REQUEST_INVALID/MIXED_CURRENCY; 401; 403 CSRF/COMPANY_SUSPENDED; 404 COMPANY_NOT_FOUND/PRODUCT_NOT_FOUND (one answer for every visibility reason); 409 PRICE_CHANGED/INSUFFICIENT_STOCK/IDEMPOTENCY_KEY_REUSED; 413; 429 quota. 400 QUANTITY_NOT_ALLOWED when a line breaks the case pack or minimum quantity.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6097,6 +6097,16 @@
               }
             ],
             "description": "Consumer price, all taxes included; content, DRAFT only"
+          },
+          "details": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProductDetailsInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6151,6 +6161,16 @@
               }
             ],
             "description": "Consumer price, all taxes included; content, DRAFT only"
+          },
+          "details": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProductDetailsInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6283,6 +6303,9 @@
             ],
             "minimum": 0,
             "description": "null: the seller does not track stock"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ProductDetails"
           }
         },
         "required": [
@@ -6294,7 +6317,8 @@
           "price",
           "categoryId",
           "imageIds",
-          "availableQuantity"
+          "availableQuantity",
+          "details"
         ]
       },
       "OwnerProduct": {
@@ -6378,6 +6402,9 @@
               }
             ],
             "description": "null: discovery only for consumers"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ProductDetails"
           }
         },
         "required": [
@@ -6395,7 +6422,8 @@
           "categoryId",
           "imageIds",
           "stockQuantity",
-          "retailPrice"
+          "retailPrice",
+          "details"
         ]
       },
       "PublicProduct": {
@@ -6445,6 +6473,23 @@
               }
             ],
             "description": "null: discovery only for consumers"
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "PIECE",
+              "PACK",
+              "BOX",
+              "KG",
+              "LITER",
+              "METER"
+            ]
           }
         },
         "required": [
@@ -6455,7 +6500,9 @@
           "description",
           "categoryId",
           "imageIds",
-          "retailPrice"
+          "retailPrice",
+          "brand",
+          "unit"
         ]
       },
       "OwnerProductPage": {
@@ -7485,6 +7532,20 @@
           "lineAmount": {
             "type": "string",
             "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "vatRate": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "PIECE",
+              "PACK",
+              "BOX",
+              "KG",
+              "LITER",
+              "METER"
+            ]
           }
         },
         "required": [
@@ -7495,7 +7556,9 @@
           "unitAmount",
           "taxIncluded",
           "quantity",
-          "lineAmount"
+          "lineAmount",
+          "vatRate",
+          "unit"
         ]
       },
       "Order": {
@@ -8059,6 +8122,106 @@
         "required": [
           "token"
         ]
+      },
+      "ProductDetailsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "ADR-011; omitted on create: VAT 20, PIECE, case pack 1, minimum 1; omitted on edit: unchanged",
+        "properties": {
+          "vatRate": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              10,
+              20
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "PIECE",
+              "PACK",
+              "BOX",
+              "KG",
+              "LITER",
+              "METER"
+            ]
+          },
+          "casePack": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "minQuantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "barcode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^([0-9]{8}|[0-9]{12,14})$",
+            "description": "GTIN with a valid check digit"
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          }
+        }
+      },
+      "ProductDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vatRate",
+          "unit",
+          "casePack",
+          "minQuantity",
+          "barcode",
+          "brand"
+        ],
+        "properties": {
+          "vatRate": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "PIECE",
+              "PACK",
+              "BOX",
+              "KG",
+              "LITER",
+              "METER"
+            ]
+          },
+          "casePack": {
+            "type": "integer",
+            "description": "B2B orders must be a multiple"
+          },
+          "minQuantity": {
+            "type": "integer",
+            "description": "B2B minimum per line"
+          },
+          "barcode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       }
     }
   }

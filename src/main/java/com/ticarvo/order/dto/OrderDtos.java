@@ -32,7 +32,8 @@ public final class OrderDtos {
     public record Payment(@NotNull @PositiveOrZero Long expectedVersion, @NotNull PaymentStatus status) {}
 
     // Responses. Amounts are strings with two decimals, like catalog prices.
-    public record Line(int lineNo, UUID productId, String sku, String name, String unitAmount, boolean taxIncluded, int quantity, String lineAmount) {}
+    public record Line(int lineNo, UUID productId, String sku, String name, String unitAmount, boolean taxIncluded, int quantity, String lineAmount,
+        int vatRate, String unit) {}
     /** B2C orders have no buyer company; buyerName is then the recipient. paymentMethod and shippingAddress are B2C only. */
     public record Order(UUID id, UUID checkoutId, Channel channel, UUID buyerCompanyId, String buyerName, UUID sellerCompanyId, String sellerName,
         OrderStatus status, PaymentStatus paymentStatus, PaymentMethod paymentMethod, String currency, String totalAmount, String buyerNote,

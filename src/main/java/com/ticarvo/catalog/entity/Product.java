@@ -29,6 +29,13 @@ public class Product {
     // Consumer price, all taxes included; null means the product is discovery-only for consumers (ADR-010).
     @Column(name="retail_amount",precision=19,scale=2) private BigDecimal retailAmount;
     @JdbcTypeCode(SqlTypes.CHAR) @Column(name="retail_currency",length=3) private String retailCurrency;
+    // ADR-011 details; content, so they change only while DRAFT.
+    @Column(name="vat_rate",nullable=false) private int vatRate=20;
+    @Enumerated(EnumType.STRING) @Column(length=10,nullable=false) private com.ticarvo.catalog.model.ProductUnit unit=com.ticarvo.catalog.model.ProductUnit.PIECE;
+    @Column(name="case_pack",nullable=false) private int casePack=1;
+    @Column(name="min_quantity",nullable=false) private int minQuantity=1;
+    @Column(length=14) private String barcode;
+    @Column(length=100) private String brand;
 
     protected Product() {}
     public Product(UUID seller,String sku,String name,String description,BigDecimal amount,String currency,boolean tax,Instant now) {
@@ -79,6 +86,15 @@ public class Product {
     public String retailCurrency() { return retailCurrency; }
     /** Content, like the B2B price: callers allow it only while DRAFT. */
     public void retail(BigDecimal amount,String currency) { retailAmount=amount; retailCurrency=currency; }
+    public void details(int vatRate,com.ticarvo.catalog.model.ProductUnit unit,int casePack,int minQuantity,String barcode,String brand) {
+        this.vatRate=vatRate; this.unit=unit; this.casePack=casePack; this.minQuantity=minQuantity; this.barcode=barcode; this.brand=brand;
+    }
+    public int vatRate() { return vatRate; }
+    public com.ticarvo.catalog.model.ProductUnit unit() { return unit; }
+    public int casePack() { return casePack; }
+    public int minQuantity() { return minQuantity; }
+    public String barcode() { return barcode; }
+    public String brand() { return brand; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
 }

@@ -160,6 +160,31 @@ class OrderIntegrationTest {
         } finally { pool.shutdownNow(); }
     }
 
+    /** ADR-011: product details are validated, wholesale quantity rules hold at checkout and lines keep VAT and unit. */
+    @Test void productDetailsAndWholesaleQuantities() throws Exception {
+        var buyer=user(); UUID b=company(buyer); var s=seller(); approve(buyer,b,s);
+        String c="/api/v1/companies/"+s.id()+"/products";
+        String base="{\"sku\":\"CASE-1\",\"name\":\"Koli Kalem\",\"price\":{\"amount\":\"2.50\",\"currency\":\"TRY\",\"taxIncluded\":false},\"details\":";
+        assertEquals("400 VALIDATION_FAILED",outcome(send(s.user(),"POST",c,base+"{\"vatRate\":18}}")),"only 0, 1, 10, 20");
+        assertEquals("400 VALIDATION_FAILED",outcome(send(s.user(),"POST",c,base+"{\"barcode\":\"4006381333932\"}}")),"wrong check digit");
+        var created=json.readTree(send(s.user(),"POST",c,base+"{\"vatRate\":10,\"unit\":\"BOX\",\"casePack\":6,\"minQuantity\":12,\"barcode\":\"4006381333931\",\"brand\":\"Ticarvo\"}}").body());
+        var d=created.get("details");
+        assertEquals(10,d.get("vatRate").asInt()); assertEquals("BOX",d.get("unit").asString()); assertEquals(6,d.get("casePack").asInt());
+        assertEquals(12,d.get("minQuantity").asInt()); assertEquals("4006381333931",d.get("barcode").asString()); assertEquals("Ticarvo",d.get("brand").asString());
+        String id=created.get("id").asString(), p=c+"/"+id;
+        var edited=json.readTree(send(s.user(),"PUT",p,"{\"expectedVersion\":"+created.get("version").asLong()
+            +",\"sku\":\"CASE-1\",\"name\":\"Koli Kalem 2\",\"price\":{\"amount\":\"2.50\",\"currency\":\"TRY\",\"taxIncluded\":false}}").body());
+        assertEquals(6,edited.get("details").get("casePack").asInt(),"an edit without details keeps them");
+        long v=json.readTree(send(s.user(),"PUT",p+"/buyers","{\"expectedVersion\":"+edited.get("version").asLong()+",\"buyerCompanyIds\":[\""+b+"\"]}").body()).get("productVersion").asLong();
+        assertEquals(200,send(s.user(),"POST",p+"/publish","{\"expectedVersion\":"+v+"}").statusCode());
+        assertEquals("400 QUANTITY_NOT_ALLOWED",outcome(order(buyer,b,"qty-rule-1",checkout(group(s.id(),null,line(id,6,"2.50"))))),"below the minimum");
+        assertEquals("400 QUANTITY_NOT_ALLOWED",outcome(order(buyer,b,"qty-rule-2",checkout(group(s.id(),null,line(id,13,"2.50"))))),"not a whole case");
+        var placed=order(buyer,b,"qty-rule-3",checkout(group(s.id(),null,line(id,12,"2.50"))));
+        assertEquals(201,placed.statusCode(),placed.body());
+        var lineNode=json.readTree(placed.body()).get("orders").get(0).get("lines").get(0);
+        assertEquals(10,lineNode.get("vatRate").asInt()); assertEquals("BOX",lineNode.get("unit").asString());
+    }
+
     /** A-01: a page of 100 orders names up to 101 companies; the name lookup used to throw above 100. */
     @Test void companyNamesForMoreThanOneHundredIds() throws Exception {
         var owner=user(); UUID real=company(owner);

@@ -13,14 +13,17 @@ public final class ProductMapper {
     public static CatalogDtos.Price retailPrice(Product p) {
         return p.retailAmount()==null ? null : new CatalogDtos.Price(p.retailAmount().setScale(2).toPlainString(),p.retailCurrency(),true);
     }
+    public static CatalogDtos.Details details(Product p) {
+        return new CatalogDtos.Details(p.vatRate(),p.unit(),p.casePack(),p.minQuantity(),p.barcode(),p.brand());
+    }
     public static CatalogDtos.Owner owner(Product p,List<UUID> imageIds) {
         return new CatalogDtos.Owner(p.id(),p.seller(),p.sku(),p.name(),p.description(),p.status(),p.publicVisible(),
-            price(p),p.version(),p.createdAt(),p.updatedAt(),p.categoryId(),imageIds,p.stockQuantity(),retailPrice(p));
+            price(p),p.version(),p.createdAt(),p.updatedAt(),p.categoryId(),imageIds,p.stockQuantity(),retailPrice(p),details(p));
     }
     public static CatalogDtos.Buyer buyer(Product p,List<UUID> imageIds) {
-        return new CatalogDtos.Buyer(p.id(),p.seller(),p.sku(),p.name(),p.description(),price(p),p.categoryId(),imageIds,p.stockQuantity());
+        return new CatalogDtos.Buyer(p.id(),p.seller(),p.sku(),p.name(),p.description(),price(p),p.categoryId(),imageIds,p.stockQuantity(),details(p));
     }
     public static CatalogDtos.PublicProduct publicDto(Product p,String sellerName,List<UUID> imageIds) {
-        return new CatalogDtos.PublicProduct(p.id(),p.seller(),sellerName,p.name(),p.description(),p.categoryId(),imageIds,retailPrice(p));
+        return new CatalogDtos.PublicProduct(p.id(),p.seller(),sellerName,p.name(),p.description(),p.categoryId(),imageIds,retailPrice(p),p.brand(),p.unit());
     }
 }

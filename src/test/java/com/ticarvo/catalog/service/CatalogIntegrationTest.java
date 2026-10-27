@@ -47,7 +47,7 @@ class CatalogIntegrationTest {
   return new Actor(u.id(),u.email(),auth,companies.create("Synthetic M3 "+UUID.randomUUID(),auth).id());
  }
  CatalogDtos.PriceInput price(String amount,String currency){return new CatalogDtos.PriceInput(json.readTree("\""+amount+"\""),currency,json.readTree("false"));}
- CatalogDtos.Create input(String sku){return new CatalogDtos.Create(sku,"Synthetic product","Plain <script>text</script>",price("125.50","TRY"),null,null);}
+ CatalogDtos.Create input(String sku){return new CatalogDtos.Create(sku,"Synthetic product","Plain <script>text</script>",price("125.50","TRY"),null,null,null);}
  CatalogDtos.Owner create(Actor s,String sku){return catalog.create(s.company(),input(sku),s.auth());}
  UUID approve(Actor b,Actor s){
   sellers.update(s.company(),true,s.auth());var r=trade.apply(b.company(),new TradeDtos.Apply(s.company(),null),b.auth());
@@ -73,7 +73,7 @@ class CatalogIntegrationTest {
   error("COMPANY_NOT_FOUND",()->catalog.buyerGet(b.company(),s.company(),p.id(),other.auth()));
   error("PRODUCT_NOT_FOUND",()->catalog.buyerGet(s.company(),b.company(),p.id(),s.auth()));
   error("PRODUCT_NOT_FOUND",()->catalog.get(other.company(),p.id(),other.auth()));
-  error("PRODUCT_STATE_CONFLICT",()->catalog.edit(s.company(),p.id(),new CatalogDtos.Edit(p.version(),"NEW","Name","",price("0","USD"),null,null),s.auth()));
+  error("PRODUCT_STATE_CONFLICT",()->catalog.edit(s.company(),p.id(),new CatalogDtos.Edit(p.version(),"NEW","Name","",price("0","USD"),null,null,null),s.auth()));
   var second=companies.create("Same user other buyer",b.auth()).id();approve(new Actor(b.user(),b.email(),b.auth(),second),s);
   assertEquals(0,catalog.buyerList(second,s.company(),null,null,null,0,20,b.auth()).totalElements());
   // ADR-006: any member of the buyer company may read the private catalog; removal from the company ends access.
@@ -89,7 +89,7 @@ class CatalogIntegrationTest {
   var x=setup();var s=x.seller();var p=x.product();error("PRODUCT_NOT_FOUND",()->publicCatalog.get(p.id()));
   var visible=catalog.visibility(s.company(),p.id(),new CatalogDtos.Visibility(p.version(),true),s.auth());sellers.update(s.company(),false,s.auth());
   assertEquals(1,publicCatalog.list(s.company(),null,null,null,0,20).totalElements());
-  var node=json.valueToTree(publicCatalog.get(p.id()));assertEquals(8,node.size()); // ADR-010 added retailPrice; ADR-007 added categoryId and imageIds; still no price or SKU
+  var node=json.valueToTree(publicCatalog.get(p.id()));assertEquals(10,node.size()); // ADR-011 added brand and unit; ADR-010 added retailPrice; ADR-007 added categoryId and imageIds; still no price or SKU
   for(String key:List.of("sku","price","currency","taxIncluded","version","buyerCompanyIds"))assertFalse(node.has(key));
   catalog.visibility(s.company(),p.id(),new CatalogDtos.Visibility(visible.version(),false),s.auth());
   error("PRODUCT_NOT_FOUND",()->publicCatalog.get(p.id()));assertEquals(0,publicCatalog.list(s.company(),null,null,null,0,20).totalElements());
@@ -97,9 +97,9 @@ class CatalogIntegrationTest {
  @Test void priceAndGrantValidationVersionAndAuditRollback(){
   var s=actor();var b=actor();approve(b,s);
   for(String amount:List.of("-1","1e2","1.001","100000000000000000","NaN"))
-   error("VALIDATION_FAILED",()->catalog.create(s.company(),new CatalogDtos.Create(UUID.randomUUID().toString(),"Name","",price(amount,"TRY"),null,null),s.auth()));
-  error("VALIDATION_FAILED",()->catalog.create(s.company(),new CatalogDtos.Create("JPY","Name","",price("1","JPY"),null,null),s.auth()));
-  var max=catalog.create(s.company(),new CatalogDtos.Create("max","Name","",price("99999999999999999.99","EUR"),null,null),s.auth());assertEquals("99999999999999999.99",max.price().amount());
+   error("VALIDATION_FAILED",()->catalog.create(s.company(),new CatalogDtos.Create(UUID.randomUUID().toString(),"Name","",price(amount,"TRY"),null,null,null),s.auth()));
+  error("VALIDATION_FAILED",()->catalog.create(s.company(),new CatalogDtos.Create("JPY","Name","",price("1","JPY"),null,null,null),s.auth()));
+  var max=catalog.create(s.company(),new CatalogDtos.Create("max","Name","",price("99999999999999999.99","EUR"),null,null,null),s.auth());assertEquals("99999999999999999.99",max.price().amount());
   var p=create(s,"  lower  ");assertEquals("LOWER",p.sku());
   error("INVALID_BUYER_SELECTION",()->catalog.replaceBuyers(s.company(),p.id(),new CatalogDtos.BuyersInput(0L,List.of(b.company(),b.company())),s.auth()));
   error("INVALID_BUYER_SELECTION",()->catalog.replaceBuyers(s.company(),p.id(),new CatalogDtos.BuyersInput(0L,List.of(b.company(),UUID.randomUUID())),s.auth()));
@@ -112,7 +112,7 @@ class CatalogIntegrationTest {
    assertThrows(IllegalStateException.class,()->catalog.replaceBuyers(s.company(),p.id(),new CatalogDtos.BuyersInput(1L,List.of()),s.auth()));
    assertThrows(IllegalStateException.class,()->catalog.transition(s.company(),p.id(),1,ProductStatus.PUBLISHED,s.auth()));
    assertThrows(IllegalStateException.class,()->create(s,"ROLLBACK"));
-   assertThrows(IllegalStateException.class,()->catalog.edit(s.company(),p.id(),new CatalogDtos.Edit(1L,"LOWER","Changed","",price("0","USD"),null,null),s.auth()));
+   assertThrows(IllegalStateException.class,()->catalog.edit(s.company(),p.id(),new CatalogDtos.Edit(1L,"LOWER","Changed","",price("0","USD"),null,null,null),s.auth()));
   }finally{reset(events);}
   assertEquals(List.of(b.company()),catalog.buyers(s.company(),p.id(),s.auth()).buyerCompanyIds());assertEquals(1,catalog.get(s.company(),p.id(),s.auth()).version());
   assertEquals(2L,jdbc.queryForObject("SELECT COUNT(*) FROM catalog_product_events WHERE product_id=?",Long.class,p.id().toString()));
@@ -194,7 +194,7 @@ class CatalogIntegrationTest {
   assertEquals(1,results.stream().filter(CatalogDtos.Owner.class::isInstance).count());assertEquals(1,results.stream().filter(v->v instanceof ApiException e&&e.code().equals("CATALOG_LIMIT_REACHED")).count());
   assertEquals(1000L,jdbc.queryForObject("SELECT COUNT(*) FROM catalog_products WHERE seller_company_id=?",Long.class,s.company().toString()));
   var quota=actor();var second=companies.create("Second quota company",quota.auth()).id();
-  for(int i=0;i<30;i++)error("VALIDATION_FAILED",()->catalog.create(quota.company(),new CatalogDtos.Create("!","bad","",price("1","TRY"),null,null),quota.auth()));
+  for(int i=0;i<30;i++)error("VALIDATION_FAILED",()->catalog.create(quota.company(),new CatalogDtos.Create("!","bad","",price("1","TRY"),null,null,null),quota.auth()));
   error("RATE_LIMITED",()->catalog.create(second,input("quota"),quota.auth()));
  }
  @Test void httpSecurityValidationPublicDtoAndPayloadLimits() throws Exception{
@@ -210,7 +210,7 @@ class CatalogIntegrationTest {
   assertEquals(200,request(client,"PUT",item+"/public-visibility","{\"expectedVersion\":2,\"publicVisible\":true}",csrf,"application/json",false).statusCode());
   for(HttpClient viewer:List.of(client,client())){
    var response=request(viewer,"GET","/api/v1/catalog/products/"+x.product().id(),null,null,null,false);
-   assertEquals(200,response.statusCode(),response.body());assertEquals(8,json.readTree(response.body()).size());assertTrue(response.headers().firstValue("Cache-Control").orElse("").contains("no-store"));
+   assertEquals(200,response.statusCode(),response.body());assertEquals(10,json.readTree(response.body()).size());assertTrue(response.headers().firstValue("Cache-Control").orElse("").contains("no-store"));
   }
   assertEquals(401,request(client(),"GET","/api/v1/companies/"+x.buyer().company()+"/catalog/sellers/"+x.seller().company()+"/products",null,null,null,false).statusCode());
   assertEquals(400,request(client,"GET",base+"?size=101",null,null,null,false).statusCode());
