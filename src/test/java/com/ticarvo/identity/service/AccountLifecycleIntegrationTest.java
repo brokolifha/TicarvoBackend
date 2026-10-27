@@ -110,9 +110,25 @@ class AccountLifecycleIntegrationTest {
         assertEquals("429 RATE_LIMITED",status);
     }
 
+    /** A-04: sign-up answers the same for new and existing addresses; only the address owner hears about the attempt. */
+    @Test void signUpDoesNotRevealExistingAccounts() throws Exception {
+        var client=client();
+        String email=register(client);
+        String again="{\"email\":\""+email.toUpperCase(java.util.Locale.ROOT)+"\",\"password\":\""+PASSWORD+"\",\"displayName\":\"Someone Else\"}";
+        assertEquals("202",post(client,"/api/v1/auth/register",again),"an unverified address answers like a new one");
+        assertEquals("204",post(client,"/api/v1/auth/email-verification","{\"token\":\""+latestToken(email)+"\"}"));
+        int before=mails(email).size();
+        assertEquals("202",post(client,"/api/v1/auth/register",again),"a verified address answers like a new one");
+        assertEquals("202",post(client,"/api/v1/auth/register",again));
+        var notices=mails(email).subList(before,mails(email).size());
+        assertEquals(1,notices.size(),"one notice per window, so the form cannot flood the mailbox");
+        assertTrue(read(notices.getFirst()).contains("Ticarvo kayıt denemesi"));
+        assertEquals(1L,jdbc.queryForObject("SELECT COUNT(*) FROM app_users WHERE email=?",Long.class,email),"no second account");
+    }
+
     String register(HttpClient client) throws Exception {
         String email="m4-"+UUID.randomUUID()+"@example.invalid";
-        assertEquals("201",post(client,"/api/v1/auth/register","{\"email\":\""+email+"\",\"password\":\""+PASSWORD+"\",\"displayName\":\"Synthetic M4\"}"));
+        assertEquals("202",post(client,"/api/v1/auth/register","{\"email\":\""+email+"\",\"password\":\""+PASSWORD+"\",\"displayName\":\"Synthetic M4\"}"));
         return email;
     }
     String verifiedUser(HttpClient client) throws Exception {

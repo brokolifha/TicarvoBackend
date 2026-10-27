@@ -16,8 +16,9 @@ public class ApiErrors extends ResponseEntityExceptionHandler {
     }
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<Object> conflict(DataIntegrityViolationException exception,HttpServletRequest request) {
-        String code=request.getRequestURI().equals("/api/v1/auth/register") ? "REGISTRATION_FAILED" : "DATA_CONFLICT";
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem(HttpStatus.CONFLICT,code,"Request conflicts with existing data."));
+        // Two sign-ups racing for one address: the loser answers like every other sign-up (A-04).
+        if(request.getRequestURI().equals("/api/v1/auth/register")) return ResponseEntity.accepted().build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem(HttpStatus.CONFLICT,"DATA_CONFLICT","Request conflicts with existing data."));
     }
     @ExceptionHandler(OptimisticLockingFailureException.class)
     ResponseEntity<Object> versionConflict(OptimisticLockingFailureException exception) {

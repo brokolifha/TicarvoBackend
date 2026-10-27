@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.ticarvo.shared.security.BoundedRateLimiter;
 import com.ticarvo.shared.security.SecureTokens;
 import java.time.Clock;
 import java.time.Duration;
@@ -34,7 +35,9 @@ public class AccountService {
             FindByIndexNameSessionRepository<? extends Session> sessions, Clock clock) {
         this.users = users; this.tokens = tokens; this.mail = mail; this.passwords = passwords;
         this.sessions = sessions; this.clock = clock;
+        this.registrationNotices = new BoundedRateLimiter(clock, Duration.ofMinutes(15), 10000);
     }
+    private final BoundedRateLimiter registrationNotices;
 
     @Transactional
     public void sendVerification(AppUser user) {
@@ -44,6 +47,16 @@ public class AccountService {
     @Transactional
     public void resendVerification(String email) {
         users.findByEmail(IdentityService.normalizeEmail(email)).filter(user -> !user.isEmailVerified()).ifPresent(this::sendVerification);
+    }
+    /** Someone signed up with an address that already has an account (A-04): help the real owner, tell nobody else. */
+    @Transactional
+    public void registrationAttempt(AppUser user) {
+        if (!user.isEmailVerified()) { sendVerification(user); return; }
+        // At most one notice per account per window, so the sign-up form cannot flood a mailbox.
+        if (!registrationNotices.allow(user.getId().toString(), 1)) return;
+        mail.send(user.getEmail(), "Ticarvo kayıt denemesi",
+            "Bu e-posta adresiyle yeni bir Ticarvo hesabı açılmak istendi. Hesabınız zaten var: giriş yapabilir ya da "
+            + "parolanızı sıfırlayabilirsiniz. Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz.");
     }
     @Transactional
     public void verifyEmail(String token) {

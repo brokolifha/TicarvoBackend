@@ -25,8 +25,9 @@ public class AuthController {
     }
     @GetMapping("/csrf")
     public CsrfResponse csrf(CsrfToken token) { return new CsrfResponse(token.getHeaderName(), token.getToken()); }
-    @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@Valid @RequestBody RegisterRequest request) { return identity.register(request); }
+    /** 202 with no body whether or not the address is new (A-04); the next step is always "check your email". */
+    @PostMapping("/register") @ResponseStatus(HttpStatus.ACCEPTED)
+    public void register(@Valid @RequestBody RegisterRequest request) { identity.requestRegistration(request); }
     @GetMapping("/me")
     public UserResponse me(Authentication authentication) { return identity.currentUser(authentication); }
     @PostMapping("/email-verification") @ResponseStatus(HttpStatus.NO_CONTENT)

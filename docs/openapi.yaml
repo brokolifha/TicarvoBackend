@@ -47,7 +47,7 @@
     },
     "/auth/register": {
       "post": {
-        "summary": "Register without automatic login",
+        "summary": "Sign up. Always 202 with no body, new or existing address (A-04); a verification or notice mail follows",
         "parameters": [
           {
             "name": "X-CSRF-TOKEN",
@@ -60,15 +60,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/User"
-                }
-              }
-            }
+          "202": {
+            "description": "Accepted; check your email"
           },
           "default": {
             "description": "Problem. 400 input; 401 authentication; 403 CSRF/role; 404 invisible/missing; 409 duplicate/state/version; 413 body limit; 429 quota.",

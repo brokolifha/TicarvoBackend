@@ -54,16 +54,15 @@ try {
   $r=Send-Request $a POST '/api/v1/auth/register' @{email=$emailA;password=$password;displayName='Security A'}
   Check 'register requires CSRF' ($r.Status -eq 403) $r.Status
   $r=Send-Request $a POST '/api/v1/auth/register' @{email=$emailA;password=$password;displayName='Security A'} $tokenA
-  Check 'register valid A' ($r.Status -eq 201) $r.Status
-  $userA=$r.Json.id
+  # A-04: sign-up always answers 202 with no body; the user id comes from /auth/me after login.
+  Check 'register valid A' ($r.Status -eq 202) $r.Status
   Check 'registration excludes secrets' ($r.Body -notmatch 'password|hash|session') $r.Status
   $r=Send-Request $b POST '/api/v1/auth/register' @{email=$emailB;password=$password;displayName='Security B'} $tokenB
-  Check 'register valid B' ($r.Status -eq 201) $r.Status
-  $userB=$r.Json.id
+  Check 'register valid B' ($r.Status -eq 202) $r.Status
   $r=Send-Request $a GET '/api/v1/auth/me'
   Check 'registration does not auto-login' ($r.Status -eq 401) $r.Status
   $r=Send-Request $a POST '/api/v1/auth/register' @{email=$emailA.ToUpperInvariant();password=$password;displayName='Security A'} $tokenA
-  Check 'normalized duplicate rejected' ($r.Status -eq 409) $r.Status
+  Check 'normalized duplicate answers like a new sign-up (A-04)' ($r.Status -eq 202 -and -not $r.Body) $r.Status
   $r=Send-Request $a POST '/api/v1/auth/login' @{email=$emailA;password=$password} $tokenA -Form
   Check 'unverified login rejected' ($r.Status -eq 403 -and $r.Json.code -eq 'EMAIL_NOT_VERIFIED') $r.Status
   foreach($pair in @(@('A',$emailA),@('B',$emailB))){
@@ -75,6 +74,7 @@ try {
   Check 'login requires CSRF' ($r.Status -eq 403) $r.Status
   $r=Send-Request $a POST '/api/v1/auth/login' @{email=$emailA;password=$password} $tokenA -Form
   Check 'login valid A' ($r.Status -eq 204) $r.Status
+  $userA=(Send-Request $a GET '/api/v1/auth/me').Json.id
   $newCookie=SessionCookie $a
   Check 'login rotates session cookie' ($oldCookie -and $newCookie -and $oldCookie -ne $newCookie) 'cookie values redacted'
   $r=Send-Request $a POST '/api/v1/companies' @{name='Old CSRF test'} $tokenA
@@ -86,6 +86,7 @@ try {
   $tokenA=Csrf $a
   $r=Send-Request $b POST '/api/v1/auth/login' @{email=$emailB;password=$password} $tokenB -Form
   Check 'login valid B' ($r.Status -eq 204) $r.Status
+  $userB=(Send-Request $b GET '/api/v1/auth/me').Json.id
   $tokenB=Csrf $b
   $r=Send-Request $a POST '/api/v1/companies' @{name='Security A company'} $tokenA
   Check 'create owned company A' ($r.Status -eq 201 -and $r.Json.role -eq 'OWNER') $r.Status

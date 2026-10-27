@@ -38,6 +38,18 @@ public class IdentityService implements CurrentUserProvider, UserDirectory {
         accounts.sendVerification(user);
         return response(user);
     }
+    /**
+     * The public sign-up (A-04): the same answer whether or not the address already has an account, so it cannot
+     * be used to test addresses. The password is hashed in both branches so the timing does not tell either.
+     */
+    @Transactional
+    public void requestRegistration(RegisterRequest request) {
+        requirePasswordBytes(request.password());
+        var existing = users.findByEmail(normalizeEmail(request.email()));
+        if (existing.isEmpty()) { register(request); return; }
+        passwords.encode(request.password());
+        accounts.registrationAttempt(existing.get());
+    }
     @Transactional(readOnly = true)
     public UUID currentUserId(Authentication authentication) { return current(authentication).getId(); }
     @Transactional(readOnly = true)
