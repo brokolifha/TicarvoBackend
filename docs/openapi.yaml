@@ -5612,6 +5612,31 @@
           },
           "code": {
             "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "description": "A-06: present on REQUEST_INVALID when the failing fields are known; never contains the submitted value",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "field",
+                "code"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "examples": [
+                    "shippingAddress.phone",
+                    "orders[0].lines[0].quantity"
+                  ]
+                },
+                "code": {
+                  "type": "string",
+                  "description": "Bean Validation rule (NotBlank, Size, Pattern, Min, Max, AssertTrue, ...) or UNKNOWN_FIELD / INVALID_FORMAT"
+                }
+              }
+            }
           }
         }
       },

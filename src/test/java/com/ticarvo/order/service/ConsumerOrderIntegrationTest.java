@@ -125,6 +125,25 @@ class ConsumerOrderIntegrationTest {
         assertEquals(List.of("PLACED","ACCEPTED","PAYMENT_RECORDED","SHIPPED","DELIVERY_CONFIRMED","RETURN_REQUESTED","RETURN_CONFIRMED","PAYMENT_REFUNDED"),history);
     }
 
+    /** A-06: validation problems name the field and the rule, never the submitted value. */
+    @Test void validationProblemsNameTheFields() throws Exception {
+        var consumer=user(); UUID seller=UUID.randomUUID();
+        String body=order(seller,line(UUID.randomUUID().toString(),1,"1.00"))
+            .replace("\"+90 555 111 22 33\"","\"secret-not-a-phone\"").replace("\"acceptedPreInformation\":true","\"acceptedPreInformation\":false");
+        var invalid=place(consumer,"field-errors-1",body);
+        assertEquals("400 REQUEST_INVALID",outcome(invalid));
+        var errors=new HashSet<String>();
+        json.readTree(invalid.body()).get("errors").forEach(e->errors.add(e.get("field").asString()+"/"+e.get("code").asString()));
+        assertEquals(Set.of("shippingAddress.phone/Pattern","acceptedPreInformation/AssertTrue"),errors);
+        assertFalse(invalid.body().contains("secret-not-a-phone"),"the submitted value is never echoed");
+        var unknown=json.readTree(place(consumer,"field-errors-2",body.replace("{\"orders\"","{\"channel\":\"B2B\",\"orders\"")).body());
+        assertEquals("channel",unknown.get("errors").get(0).get("field").asString());
+        assertEquals("UNKNOWN_FIELD",unknown.get("errors").get(0).get("code").asString());
+        var wrongType=json.readTree(place(consumer,"field-errors-3",order(seller,line(UUID.randomUUID().toString(),1,"1.00")).replace("\"quantity\":1","\"quantity\":\"bir\"")).body());
+        assertEquals("orders[0].lines[0].quantity",wrongType.get("errors").get(0).get("field").asString());
+        assertEquals("INVALID_FORMAT",wrongType.get("errors").get(0).get("code").asString());
+    }
+
     String placed(User consumer,String p,int quantity) throws Exception {
         UUID seller=UUID.fromString(jdbc.queryForObject("SELECT seller_company_id FROM catalog_products WHERE id=?",String.class,p));
         var response=place(consumer,UUID.randomUUID().toString(),order(seller,line(p,quantity,"250.00")));

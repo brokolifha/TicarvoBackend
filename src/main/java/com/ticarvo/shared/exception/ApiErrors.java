@@ -44,7 +44,28 @@ public class ApiErrors extends ResponseEntityExceptionHandler {
     }
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception exception,Object body,HttpHeaders headers,HttpStatusCode status,WebRequest request) {
-        return new ResponseEntity<>(problem(status,"REQUEST_INVALID","Request could not be processed."),headers,status);
+        var problem=problem(status,"REQUEST_INVALID","Request could not be processed.");
+        var errors=fieldErrors(exception);
+        if(!errors.isEmpty()) problem.setProperty("errors",errors);
+        return new ResponseEntity<>(problem,headers,status);
+    }
+    /** Which field broke which rule (A-06), so forms can mark it. Never the submitted value. */
+    static java.util.List<java.util.Map<String,String>> fieldErrors(Exception exception) {
+        if(exception instanceof org.springframework.web.bind.MethodArgumentNotValidException invalid) {
+            return invalid.getBindingResult().getFieldErrors().stream()
+                .map(error->java.util.Map.of("field",error.getField(),"code",String.valueOf(error.getCode()))).distinct().toList();
+        }
+        if(exception instanceof org.springframework.http.converter.HttpMessageNotReadableException unreadable
+                && unreadable.getCause() instanceof tools.jackson.core.JacksonException json && !json.getPath().isEmpty()) {
+            var path=new StringBuilder();
+            for(var reference:json.getPath()) {
+                if(reference.getPropertyName()!=null) path.append(path.isEmpty()?"":".").append(reference.getPropertyName());
+                else if(reference.getIndex()>=0) path.append('[').append(reference.getIndex()).append(']');
+            }
+            String code=json instanceof tools.jackson.databind.exc.UnrecognizedPropertyException ? "UNKNOWN_FIELD" : "INVALID_FORMAT";
+            return java.util.List.of(java.util.Map.of("field",path.toString(),"code",code));
+        }
+        return java.util.List.of();
     }
     static ProblemDetail problem(HttpStatusCode status,String code,String detail) {
         var problem=ProblemDetail.forStatusAndDetail(status,detail); problem.setProperty("code",code); return problem;
