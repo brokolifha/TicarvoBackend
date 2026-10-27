@@ -16,8 +16,8 @@ public class SellerController {
     private final SellerDirectoryService sellers;
     public SellerController(SellerDirectoryService sellers) { this.sellers = sellers; }
     @GetMapping("/sellers")
-    public SellerPage list(@RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="20") int size) { return sellers.list(page, size); }
+    public SellerPage list(@RequestParam(required=false) String q, @RequestParam(defaultValue="0") int page,
+            @RequestParam(defaultValue="20") int size) { return sellers.list(q, page, size); }
     @GetMapping("/sellers/{id}")
     public SellerResponse get(@PathVariable UUID id) { return sellers.get(id); }
     @GetMapping("/companies/{id}/seller-profile")

@@ -7,7 +7,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.*;
 
 public interface CompanyRepository extends JpaRepository<Company, UUID> {
-    Page<Company> findByPublicSellerTrueAndSuspendedAtIsNull(Pageable pageable);
+    /** Public seller directory, optionally narrowed by name (C-10). */
+    @Query("select c from Company c where c.publicSeller=true and c.suspendedAt is null and (:pattern is null or c.name like :pattern escape '!')")
+    Page<Company> directory(@Param("pattern") String pattern, Pageable pageable);
     Optional<Company> findByIdAndPublicSellerTrueAndSuspendedAtIsNull(UUID id);
     boolean existsByIdAndSuspendedAtIsNotNull(UUID id);
     @Query("select c from Company c where c.name like :pattern escape '!'")

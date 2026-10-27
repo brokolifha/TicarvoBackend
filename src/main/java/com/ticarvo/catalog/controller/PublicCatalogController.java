@@ -14,9 +14,9 @@ public class PublicCatalogController {
     public PublicCatalogController(PublicCatalogService catalog) { this.catalog=catalog; }
     @GetMapping("/products")
     public CatalogDtos.Page<CatalogDtos.PublicProduct> list(@RequestParam(required=false) UUID sellerCompanyId,
-            @RequestParam(required=false) String q,@RequestParam(required=false) UUID categoryId,
+            @RequestParam(required=false) String q,@RequestParam(required=false) UUID categoryId,@RequestParam(required=false) String sort,
             @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
-        return catalog.list(sellerCompanyId,q,categoryId,page,size);
+        return catalog.list(sellerCompanyId,q,categoryId,sort,page,size);
     }
     @GetMapping("/products/{productId}")
     public CatalogDtos.PublicProduct get(@PathVariable UUID productId) {

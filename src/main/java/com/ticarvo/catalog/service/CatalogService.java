@@ -104,11 +104,11 @@ public class CatalogService {
         audit(p,actor,"CREATED");
         return owner(p);
     }
-    public CatalogDtos.Page<CatalogDtos.Owner> list(UUID seller,ProductStatus status,String q,UUID categoryId,
+    public CatalogDtos.Page<CatalogDtos.Owner> list(UUID seller,ProductStatus status,String q,UUID categoryId,String sort,
             int page,int size,Authentication auth) {
         authorize(seller,seller,auth,CATALOG_READ);
         var filter=filter(q,categoryId,categories);
-        var result=products.ownerList(seller,status,filter.pattern(),filter.anyCategory(),filter.categories(),page(page,size));
+        var result=products.ownerList(seller,status,filter.pattern(),filter.anyCategory(),filter.categories(),page(page,size,sort,false));
         var imageIds=imageIds(images,result.getContent());
         return new CatalogDtos.Page<>(result.map(p->ProductMapper.owner(p,imageIds.getOrDefault(p.id(),List.of()))).getContent(),
             page,size,result.getTotalElements());
@@ -267,11 +267,11 @@ public class CatalogService {
         }
         if(buyer.equals(seller)||!trade.hasApprovedRelationship(buyer,seller)) throw notFound();
     }
-    public CatalogDtos.Page<CatalogDtos.Buyer> buyerList(UUID buyer,UUID seller,String q,UUID categoryId,
+    public CatalogDtos.Page<CatalogDtos.Buyer> buyerList(UUID buyer,UUID seller,String q,UUID categoryId,String sort,
             int page,int size,Authentication auth) {
         authorizeBuyer(buyer,seller,auth);
         var filter=filter(q,categoryId,categories);
-        var result=products.buyerList(seller,buyer,filter.pattern(),filter.anyCategory(),filter.categories(),page(page,size));
+        var result=products.buyerList(seller,buyer,filter.pattern(),filter.anyCategory(),filter.categories(),page(page,size,sort,false));
         var imageIds=imageIds(images,result.getContent());
         return new CatalogDtos.Page<>(result.map(p->ProductMapper.buyer(p,imageIds.getOrDefault(p.id(),List.of()))).getContent(),
             page,size,result.getTotalElements());
@@ -280,11 +280,11 @@ public class CatalogService {
      * C-09: search over every approved seller. Several sellers, so no seller lock: a revocation committing during
      * this read may still show its products once, the same as any read-committed list.
      */
-    public CatalogDtos.Page<CatalogDtos.BuyerSearchItem> buyerSearch(UUID buyer,String q,UUID categoryId,int page,int size,Authentication auth) {
+    public CatalogDtos.Page<CatalogDtos.BuyerSearchItem> buyerSearch(UUID buyer,String q,UUID categoryId,String sort,int page,int size,Authentication auth) {
         UUID actor=companies.requireMember(buyer,auth);
         limits.check(CATALOG_READ,actor);
         var filter=filter(q,categoryId,categories);
-        var result=products.buyerSearch(buyer,filter.pattern(),filter.anyCategory(),filter.categories(),page(page,size));
+        var result=products.buyerSearch(buyer,filter.pattern(),filter.anyCategory(),filter.categories(),page(page,size,sort,false));
         var imageIds=imageIds(images,result.getContent());
         var names=companies.summaries(result.stream().map(Product::seller).distinct().toList());
         return new CatalogDtos.Page<>(result.map(p->new CatalogDtos.BuyerSearchItem(names.get(p.seller()).name(),
@@ -302,9 +302,22 @@ public class CatalogService {
         return content(images,store,id,imageId,size);
     }
 
-    static Pageable page(int page,int size) {
+    /**
+     * C-10: newest (default), name, price_asc or price_desc. Public lists sort by the retail price, the others by the B2B price;
+     * products without a retail price come last.
+     */
+    // shortcut: price sorts compare amounts across currencies; add a currency filter when sellers mix TRY, USD and EUR.
+    static Pageable page(int page,int size,String sort,boolean retail) {
         PageValidation.validatePage(page,size);
-        return PageRequest.of(page,size,Sort.by("createdAt").descending().and(Sort.by("id")));
+        String price=retail?"retailAmount":"amount";
+        Sort order=switch(sort==null?"newest":sort) {
+            case "newest" -> Sort.by("createdAt").descending();
+            case "name" -> Sort.by("name");
+            case "price_asc" -> Sort.by(Sort.Order.asc(price).nullsLast());
+            case "price_desc" -> Sort.by(Sort.Order.desc(price).nullsLast());
+            default -> throw error(HttpStatus.BAD_REQUEST,"VALIDATION_FAILED","sort must be newest, name, price_asc or price_desc.");
+        };
+        return PageRequest.of(page,size,order.and(Sort.by("id")));
     }
     /** Search and category filter shared by the owner, buyer and public lists (ADR-007). */
     record Filter(String pattern,boolean anyCategory,Collection<UUID> categories) {}

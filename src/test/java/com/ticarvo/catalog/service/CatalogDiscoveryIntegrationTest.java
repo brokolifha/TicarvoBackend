@@ -148,6 +148,32 @@ class CatalogDiscoveryIntegrationTest {
         assertEquals(0L,jdbc.queryForObject("SELECT COUNT(*) FROM catalog_product_images WHERE product_id=? AND position NOT BETWEEN 0 AND 3",Long.class,id));
     }
 
+    /** C-10: sort options on the lists and name search in the seller directory. */
+    @Test void listsSortAndTheDirectorySearches() throws Exception {
+        var m=market();
+        String expensive=retailProduct(m,"C10-A","Bardak","5.00","30.00"), cheap=retailProduct(m,"C10-B","Avize","50.00","10.00"),
+            discovery=retailProduct(m,"C10-C","Cetvel","20.00",null);
+        String pub="/api/v1/catalog/products?sellerCompanyId="+m.s()+"&sort=";
+        assertEquals(List.of(cheap,expensive,discovery),ids(request(null,"GET",pub+"price_asc",null,null)),"retail price, no price last");
+        assertEquals(List.of(expensive,cheap,discovery),ids(request(null,"GET",pub+"price_desc",null,null)));
+        assertEquals(List.of(cheap,expensive,discovery),ids(request(null,"GET",pub+"name",null,null)));
+        assertEquals(List.of(expensive,discovery,cheap),ids(send(m.seller(),"GET","/api/v1/companies/"+m.s()+"/products?sort=price_asc",null)),"B2B price for the seller");
+        assertEquals("400 VALIDATION_FAILED",outcome(request(null,"GET",pub+"cheapest",null,null)));
+        String name=json.readTree(send(m.seller(),"GET","/api/v1/companies/"+m.s(),null).body()).get("name").asString();
+        var found=json.readTree(request(null,"GET","/api/v1/sellers?q="+URLEncoder.encode(name.substring(4,14),StandardCharsets.UTF_8),null,null).body());
+        assertEquals(1,found.get("totalElements").asLong()); assertEquals(m.s().toString(),found.get("content").get(0).get("id").asString());
+        assertEquals(0,json.readTree(request(null,"GET","/api/v1/sellers?q=%25%25",null,null).body()).get("totalElements").asLong(),"wildcards are text");
+    }
+    String retailProduct(Market m,String sku,String name,String b2b,String retail) throws Exception {
+        String body="{\"sku\":\""+sku+"\",\"name\":\""+name+"\",\"price\":{\"amount\":\""+b2b+"\",\"currency\":\"TRY\",\"taxIncluded\":false}"
+            +(retail==null?"":",\"retailPrice\":{\"amount\":\""+retail+"\",\"currency\":\"TRY\"}")+"}";
+        return publish(m,body,false,true);
+    }
+    List<String> ids(HttpResponse<String> response) {
+        assertEquals(200,response.statusCode(),response.body());
+        var ids=new ArrayList<String>(); json.readTree(response.body()).get("content").forEach(p->ids.add(p.get("id").asString())); return ids;
+    }
+
     /** C-09: one search over every approved seller, never wider than the per-seller buyer catalogs. */
     @Test void buyerSearchesAllApprovedSellersAtOnce() throws Exception {
         var m=market();

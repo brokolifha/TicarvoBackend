@@ -13,9 +13,9 @@ public class BuyerCatalogController {
     public BuyerCatalogController(CatalogService catalog) { this.catalog=catalog; }
     @GetMapping
     public CatalogDtos.Page<CatalogDtos.Buyer> list(@PathVariable UUID buyerId,@PathVariable UUID sellerId,
-            @RequestParam(required=false) String q,@RequestParam(required=false) UUID categoryId,
+            @RequestParam(required=false) String q,@RequestParam(required=false) UUID categoryId,@RequestParam(required=false) String sort,
             @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size,Authentication auth) {
-        return catalog.buyerList(buyerId,sellerId,q,categoryId,page,size,auth);
+        return catalog.buyerList(buyerId,sellerId,q,categoryId,sort,page,size,auth);
     }
     @GetMapping("/{productId}")
     public CatalogDtos.Buyer get(@PathVariable UUID buyerId,@PathVariable UUID sellerId,@PathVariable UUID productId,Authentication auth) {

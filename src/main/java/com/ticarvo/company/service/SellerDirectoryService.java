@@ -22,9 +22,9 @@ public class SellerDirectoryService {
         this.companies = companies; this.access = access;
     }
     @Transactional(readOnly = true)
-    public SellerPage list(int page, int size) {
+    public SellerPage list(String q, int page, int size) {
         PageValidation.validatePage(page, size);
-        var result = companies.findByPublicSellerTrueAndSuspendedAtIsNull(PageRequest.of(page, size, Sort.by("name").and(Sort.by("id"))));
+        var result = companies.directory(com.ticarvo.shared.validation.SearchText.likePattern(q), PageRequest.of(page, size, Sort.by("name").and(Sort.by("id"))));
         return new SellerPage(result.stream().map(c -> new SellerResponse(c.getId(), c.getName())).toList(), page, size, result.getTotalElements());
     }
     @Transactional(readOnly = true)

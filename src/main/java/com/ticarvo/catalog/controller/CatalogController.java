@@ -24,9 +24,9 @@ public class CatalogController {
     }
     @GetMapping
     public CatalogDtos.Page<CatalogDtos.Owner> list(@PathVariable UUID sellerId,@RequestParam(required=false) ProductStatus status,
-            @RequestParam(required=false) String q,@RequestParam(required=false) UUID categoryId,
+            @RequestParam(required=false) String q,@RequestParam(required=false) UUID categoryId,@RequestParam(required=false) String sort,
             @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size,Authentication auth) {
-        return catalog.list(sellerId,status,q,categoryId,page,size,auth);
+        return catalog.list(sellerId,status,q,categoryId,sort,page,size,auth);
     }
     @PostMapping(path="/{productId}/images",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     public CatalogDtos.Owner addImage(@PathVariable UUID sellerId,@PathVariable UUID productId,@RequestParam("file") MultipartFile file,

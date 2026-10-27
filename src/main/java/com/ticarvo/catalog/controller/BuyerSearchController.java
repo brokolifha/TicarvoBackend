@@ -13,8 +13,8 @@ public class BuyerSearchController {
     public BuyerSearchController(CatalogService catalog) { this.catalog=catalog; }
     @GetMapping
     public CatalogDtos.Page<CatalogDtos.BuyerSearchItem> search(@PathVariable UUID buyerId,@RequestParam(required=false) String q,
-            @RequestParam(required=false) UUID categoryId,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size,
+            @RequestParam(required=false) UUID categoryId,@RequestParam(required=false) String sort,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size,
             Authentication auth) {
-        return catalog.buyerSearch(buyerId,q,categoryId,page,size,auth);
+        return catalog.buyerSearch(buyerId,q,categoryId,sort,page,size,auth);
     }
 }

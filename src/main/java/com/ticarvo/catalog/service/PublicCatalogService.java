@@ -24,9 +24,9 @@ public class PublicCatalogService {
             ImageStore store,CompanyAccess companies) {
         this.products=products; this.categories=categories; this.images=images; this.store=store; this.companies=companies;
     }
-    public CatalogDtos.Page<CatalogDtos.PublicProduct> list(UUID seller,String q,UUID categoryId,int page,int size) {
+    public CatalogDtos.Page<CatalogDtos.PublicProduct> list(UUID seller,String q,UUID categoryId,String sort,int page,int size) {
         var filter=CatalogService.filter(q,categoryId,categories);
-        var result=products.publicList(seller,filter.pattern(),filter.anyCategory(),filter.categories(),CatalogService.page(page,size));
+        var result=products.publicList(seller,filter.pattern(),filter.anyCategory(),filter.categories(),CatalogService.page(page,size,sort,true));
         var summaries=companies.summaries(result.stream().map(p->p.seller()).distinct().toList());
         var imageIds=CatalogService.imageIds(images,result.getContent());
         return new CatalogDtos.Page<>(

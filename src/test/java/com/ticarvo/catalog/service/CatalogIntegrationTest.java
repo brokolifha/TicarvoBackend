@@ -64,18 +64,18 @@ class CatalogIntegrationTest {
   assertEquals("SKU",p.sku());assertFalse(p.publicVisible());
   UUID absentSeller=UUID.randomUUID();
   error("PRODUCT_NOT_FOUND",()->catalog.buyerGet(b.company(),absentSeller,p.id(),b.auth()));
-  error("PRODUCT_NOT_FOUND",()->catalog.buyerList(b.company(),absentSeller,null,null,0,20,b.auth()));
+  error("PRODUCT_NOT_FOUND",()->catalog.buyerList(b.company(),absentSeller,null,null,null,0,20,b.auth()));
   error("PRODUCT_NOT_FOUND",()->catalog.buyerGet(b.company(),other.company(),p.id(),b.auth()));
-  error("PRODUCT_NOT_FOUND",()->catalog.buyerList(b.company(),other.company(),null,null,0,20,b.auth()));
+  error("PRODUCT_NOT_FOUND",()->catalog.buyerList(b.company(),other.company(),null,null,null,0,20,b.auth()));
   assertEquals("125.50",catalog.buyerGet(b.company(),s.company(),p.id(),b.auth()).price().amount());
-  assertEquals(0,catalog.buyerList(other.company(),s.company(),null,null,0,20,other.auth()).totalElements());
+  assertEquals(0,catalog.buyerList(other.company(),s.company(),null,null,null,0,20,other.auth()).totalElements());
   error("PRODUCT_NOT_FOUND",()->catalog.buyerGet(other.company(),s.company(),p.id(),other.auth()));
   error("COMPANY_NOT_FOUND",()->catalog.buyerGet(b.company(),s.company(),p.id(),other.auth()));
   error("PRODUCT_NOT_FOUND",()->catalog.buyerGet(s.company(),b.company(),p.id(),s.auth()));
   error("PRODUCT_NOT_FOUND",()->catalog.get(other.company(),p.id(),other.auth()));
   error("PRODUCT_STATE_CONFLICT",()->catalog.edit(s.company(),p.id(),new CatalogDtos.Edit(p.version(),"NEW","Name","",price("0","USD"),null,null),s.auth()));
   var second=companies.create("Same user other buyer",b.auth()).id();approve(new Actor(b.user(),b.email(),b.auth(),second),s);
-  assertEquals(0,catalog.buyerList(second,s.company(),null,null,0,20,b.auth()).totalElements());
+  assertEquals(0,catalog.buyerList(second,s.company(),null,null,null,0,20,b.auth()).totalElements());
   // ADR-006: any member of the buyer company may read the private catalog; removal from the company ends access.
   jdbc.update("UPDATE company_memberships SET role='MEMBER' WHERE company_id=?",b.company().toString());
   assertEquals(p.id(),catalog.buyerGet(b.company(),s.company(),p.id(),b.auth()).id());
@@ -88,11 +88,11 @@ class CatalogIntegrationTest {
  @Test void publicExplicitVisibilityNeverIncludesPriceOrSku(){
   var x=setup();var s=x.seller();var p=x.product();error("PRODUCT_NOT_FOUND",()->publicCatalog.get(p.id()));
   var visible=catalog.visibility(s.company(),p.id(),new CatalogDtos.Visibility(p.version(),true),s.auth());sellers.update(s.company(),false,s.auth());
-  assertEquals(1,publicCatalog.list(s.company(),null,null,0,20).totalElements());
+  assertEquals(1,publicCatalog.list(s.company(),null,null,null,0,20).totalElements());
   var node=json.valueToTree(publicCatalog.get(p.id()));assertEquals(8,node.size()); // ADR-010 added retailPrice; ADR-007 added categoryId and imageIds; still no price or SKU
   for(String key:List.of("sku","price","currency","taxIncluded","version","buyerCompanyIds"))assertFalse(node.has(key));
   catalog.visibility(s.company(),p.id(),new CatalogDtos.Visibility(visible.version(),false),s.auth());
-  error("PRODUCT_NOT_FOUND",()->publicCatalog.get(p.id()));assertEquals(0,publicCatalog.list(s.company(),null,null,0,20).totalElements());
+  error("PRODUCT_NOT_FOUND",()->publicCatalog.get(p.id()));assertEquals(0,publicCatalog.list(s.company(),null,null,null,0,20).totalElements());
  }
  @Test void priceAndGrantValidationVersionAndAuditRollback(){
   var s=actor();var b=actor();approve(b,s);
