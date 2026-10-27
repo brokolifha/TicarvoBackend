@@ -36,6 +36,10 @@ public class PurchaseOrder {
     private String currency;
     @Column(name = "total_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount;
+    @Column(name = "subtotal_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal subtotalAmount;
+    @Column(name = "shipping_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal shippingAmount = BigDecimal.ZERO;
     @Column(name = "buyer_note", length = 1000)
     private String buyerNote;
     @Column(length = 100)
@@ -60,7 +64,7 @@ public class PurchaseOrder {
     public PurchaseOrder(UUID checkoutId, UUID buyerCompanyId, UUID sellerCompanyId, String currency, BigDecimal totalAmount, String buyerNote, Instant now) {
         this.id = UUID.randomUUID(); this.checkoutId = checkoutId; this.channel = Channel.B2B; this.buyerCompanyId = buyerCompanyId;
         this.sellerCompanyId = sellerCompanyId; this.status = OrderStatus.PLACED; this.paymentStatus = PaymentStatus.UNPAID;
-        this.currency = currency; this.totalAmount = totalAmount; this.buyerNote = buyerNote; this.createdAt = now; this.updatedAt = now;
+        this.currency = currency; this.totalAmount = totalAmount; this.subtotalAmount = totalAmount; this.buyerNote = buyerNote; this.createdAt = now; this.updatedAt = now;
     }
     /** A consumer order: address, payment method and the accepted terms version are copied onto the order (ADR-010). */
     public static PurchaseOrder consumer(UUID checkoutId, UUID consumerUserId, UUID sellerCompanyId, String currency, BigDecimal totalAmount,
@@ -88,6 +92,10 @@ public class PurchaseOrder {
     public PaymentMethod paymentMethod() { return paymentMethod; }
     public String currency() { return currency; }
     public BigDecimal totalAmount() { return totalAmount; }
+    public BigDecimal subtotalAmount() { return subtotalAmount; }
+    public BigDecimal shippingAmount() { return shippingAmount; }
+    /** Goods plus shipping make the total (ADR-011). */
+    public void charges(BigDecimal subtotal, BigDecimal shipping) { subtotalAmount = subtotal; shippingAmount = shipping; totalAmount = subtotal.add(shipping); }
     public String buyerNote() { return buyerNote; }
     public String carrier() { return carrier; }
     public String trackingNumber() { return trackingNumber; }

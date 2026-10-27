@@ -86,7 +86,7 @@ public class OrderQueries {
             String buyerName = o.buyerCompanyId() != null ? names.get(o.buyerCompanyId()).name() : a == null ? null : a.recipient();
             return new OrderDtos.Order(o.id(), o.checkoutId(), o.channel(), o.buyerCompanyId(), buyerName,
                 o.sellerCompanyId(), names.get(o.sellerCompanyId()).name(), o.status(), o.paymentStatus(), o.paymentMethod(), o.currency(),
-                money(o.totalAmount()), o.buyerNote(), address, o.carrier(), o.trackingNumber(), o.deliveredAt(), o.createdAt(), o.updatedAt(),
+                money(o.subtotalAmount()), money(o.shippingAmount()), money(o.totalAmount()), o.buyerNote(), address, o.carrier(), o.trackingNumber(), o.deliveredAt(), o.createdAt(), o.updatedAt(),
                 o.version(), byOrder.getOrDefault(o.id(), List.of()).stream().map(OrderQueries::line).toList());
         }).toList();
     }

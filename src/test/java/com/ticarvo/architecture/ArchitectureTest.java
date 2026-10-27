@@ -17,7 +17,9 @@ class ArchitectureTest {
   "com.ticarvo.company.dto.CompanyAdminViews","com.ticarvo.company.dto.CompanyAdminViews$Company","com.ticarvo.company.dto.CompanyAdminViews$Membership",
   "com.ticarvo.catalog.service.CatalogLookup",
   // ADR-009 order module boundaries.
-  "com.ticarvo.catalog.service.CatalogOrdering","com.ticarvo.catalog.dto.OrderableProduct");
+  "com.ticarvo.catalog.service.CatalogOrdering","com.ticarvo.catalog.dto.OrderableProduct",
+  // ADR-011 shipping terms read by the order module.
+  "com.ticarvo.company.dto.ShippingTerms");
  private static String module(String name){String[] parts=name.split("\\.");return parts.length>2?parts[2]:"";}
  private static boolean layer(String name,String layer){return name.contains("."+layer+".");}
  @Test void productionLayersAndModuleBoundariesAreEnforced() {

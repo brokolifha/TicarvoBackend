@@ -38,6 +38,8 @@ import java.util.function.BiFunction;
 public class CheckoutService {
     public record Result(boolean created, OrderDtos.CheckoutResult body) {}
     /** Builds one seller order of the checkout; the channel decides who the buyer is. */
+    /** One channel's terms of one seller, already in BigDecimal (null: no rule). */
+    record Rule(BigDecimal minimum, BigDecimal fee, BigDecimal freeFrom) {}
     interface OrderFactory { PurchaseOrder create(UUID checkoutId, UUID seller, String currency, BigDecimal total, String note, Instant now); }
     static final int MAX_LINES = 100;
     private final CheckoutRepository checkouts;
@@ -80,7 +82,8 @@ public class CheckoutService {
         return place(input.orders(), actor, new Checkout(buyer, null, idempotencyKey, hash, actor, clock.instant()),
             seller -> { var s = locked.get(seller); return s != null && !s.suspended() && trade.hasApprovedRelationship(buyer, seller); },
             (seller, ids) -> catalog.orderable(seller, buyer, ids),
-            (checkoutId, seller, currency, total, note, now) -> new PurchaseOrder(checkoutId, buyer, seller, currency, total, note, now));
+            (checkoutId, seller, currency, total, note, now) -> new PurchaseOrder(checkoutId, buyer, seller, currency, total, note, now),
+            seller -> rule(companies.shippingTerms(seller), true));
     }
 
     /** B2C: a person orders public products at the tax-inclusive retail price, after accepting the pre-information and contract. */
@@ -103,12 +106,13 @@ public class CheckoutService {
             seller -> { var s = locked.get(seller); return s != null && !s.suspended(); },
             catalog::retailOrderable,
             (checkoutId, seller, currency, total, note, now) ->
-                PurchaseOrder.consumer(checkoutId, actor, seller, currency, total, note, input.paymentMethod(), address, termsVersion, now));
+                PurchaseOrder.consumer(checkoutId, actor, seller, currency, total, note, input.paymentMethod(), address, termsVersion, now),
+            seller -> rule(companies.shippingTerms(seller), false));
     }
 
     /** Every check first, then any write, so a failing seller leaves nothing behind. */
     private Result place(List<OrderDtos.SellerOrderInput> groups, UUID actor, Checkout draft, java.util.function.Predicate<UUID> sellerAvailable,
-            BiFunction<UUID, List<UUID>, Map<UUID, OrderableProduct>> lookup, OrderFactory factory) {
+            BiFunction<UUID, List<UUID>, Map<UUID, OrderableProduct>> lookup, OrderFactory factory, java.util.function.Function<UUID, Rule> rules) {
         var products = new HashMap<UUID, Map<UUID, OrderableProduct>>();
         boolean priceChanged = false;
         for (var group : groups) {
@@ -129,6 +133,10 @@ public class CheckoutService {
                 priceChanged |= new BigDecimal(line.expectedUnitPrice()).compareTo(found.get(line.productId()).amount()) != 0;
             }
             products.put(group.sellerCompanyId(), found);
+            var minimum = applies(found) ? rules.apply(group.sellerCompanyId()).minimum() : null;
+            if (minimum != null && subtotal(group, found).compareTo(minimum) < 0) {
+                throw new ApiException(HttpStatus.CONFLICT, "BELOW_MINIMUM_ORDER", "This seller's minimum order is " + minimum.toPlainString() + " TRY.");
+            }
         }
         if (priceChanged) throw new ApiException(HttpStatus.CONFLICT, "PRICE_CHANGED", "A price changed. Reload the products before ordering.");
 
@@ -147,7 +155,12 @@ public class CheckoutService {
             var total = amounts.stream().reduce(BigDecimal.ZERO.setScale(2), BigDecimal::add);
             // DECIMAL(19,2) holds 17 integer digits.
             if (total.precision() - total.scale() > 17) throw invalid("Order total is too large.");
-            var order = orders.save(factory.create(checkout.id(), group.sellerCompanyId(), currency(found), total, blankToNull(group.note()), now));
+            var rule = applies(found) ? rules.apply(group.sellerCompanyId()) : new Rule(null, null, null);
+            var shipping = rule.fee() != null && (rule.freeFrom() == null || total.compareTo(rule.freeFrom()) < 0) ? rule.fee() : BigDecimal.ZERO.setScale(2);
+            var order = factory.create(checkout.id(), group.sellerCompanyId(), currency(found), total, blankToNull(group.note()), now);
+            order.charges(total, shipping);
+            if (order.totalAmount().precision() - order.totalAmount().scale() > 17) throw invalid("Order total is too large.");
+            orders.save(order);
             for (int i = 0; i < group.lines().size(); i++) {
                 var line = group.lines().get(i);
                 var product = found.get(line.productId());
@@ -158,6 +171,16 @@ public class CheckoutService {
         }
         orders.flush();
         return new Result(true, queries.checkout(checkout.id()));
+    }
+    // shortcut: shipping terms are in TRY and skipped for orders in other currencies; add per-currency terms when sellers price in USD or EUR.
+    private static boolean applies(Map<UUID, OrderableProduct> found) { return "TRY".equals(currency(found)); }
+    private static BigDecimal subtotal(OrderDtos.SellerOrderInput group, Map<UUID, OrderableProduct> found) {
+        return group.lines().stream().map(l -> found.get(l.productId()).amount().multiply(BigDecimal.valueOf(l.quantity()))).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    private static Rule rule(com.ticarvo.company.dto.ShippingTerms t, boolean b2b) {
+        java.util.function.Function<String, BigDecimal> money = v -> v == null ? null : new BigDecimal(v).setScale(2);
+        return b2b ? new Rule(money.apply(t.b2bMinimumOrder()), money.apply(t.b2bShippingFee()), money.apply(t.b2bFreeShippingFrom()))
+            : new Rule(money.apply(t.b2cMinimumOrder()), money.apply(t.b2cShippingFee()), money.apply(t.b2cFreeShippingFrom()));
     }
     private Result replay(Checkout previous, String hash) {
         if (!previous.requestHash().equals(hash)) {

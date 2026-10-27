@@ -82,6 +82,12 @@ class ConsumerOrderIntegrationTest {
         assertEquals("İstanbul",sale.get("shippingAddress").get("city").asString(),"the seller needs the address to ship");
         assertEquals(1,json.readTree(send(consumer,"GET","/api/v1/me/orders",null).body()).get("totalElements").asInt());
 
+        // ADR-011: the B2C shipping fee applies to consumer orders below the free-shipping threshold.
+        assertEquals(200,send(seller,"PUT","/api/v1/companies/"+s+"/shipping-terms","{\"b2cShippingFee\":\"30\",\"b2cFreeShippingFrom\":\"300\"}").statusCode());
+        var shipped=json.readTree(place(consumer,"retail-ship-1",order(s,line(retail,1,"119.90"))).body()).get("orders").get(0);
+        assertEquals("119.90",shipped.get("subtotalAmount").asString()); assertEquals("30.00",shipped.get("shippingAmount").asString());
+        assertEquals("149.90",shipped.get("totalAmount").asString());
+
         jdbc.update("UPDATE companies SET suspended_at=UTC_TIMESTAMP(6) WHERE id=?",s.toString());
         assertEquals("404 PRODUCT_NOT_FOUND",outcome(place(consumer,"suspended-1",order(s,line(retail,1,"119.90")))));
         jdbc.update("UPDATE companies SET suspended_at=NULL WHERE id=?",s.toString());

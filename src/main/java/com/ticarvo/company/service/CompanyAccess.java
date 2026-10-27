@@ -13,5 +13,7 @@ public interface CompanyAccess {
  /** Locks several companies in UUID order, so two such callers can never deadlock (ADR-009); unknown ids are absent. */
  java.util.Map<UUID,CompanySummary> lockCompanies(java.util.Collection<UUID> companyIds);
  CompanySummary summary(UUID companyId);
+ /** ADR-011: the seller's order rules; joins the caller's transaction. */
+ com.ticarvo.company.dto.ShippingTerms shippingTerms(UUID companyId);
  java.util.Map<UUID,CompanySummary> summaries(java.util.Collection<UUID> ids);
 }

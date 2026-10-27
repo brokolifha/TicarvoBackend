@@ -80,6 +80,15 @@ public class CompanyAccessService implements CompanyAccess {
         return result;
     }
     @Transactional(readOnly = true)
+    public com.ticarvo.company.dto.ShippingTerms shippingTerms(UUID companyId) {
+        return companies.findById(companyId).map(CompanyAccessService::terms)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SELLER_NOT_FOUND", "Seller was not found."));
+    }
+    static com.ticarvo.company.dto.ShippingTerms terms(Company company) {
+        var t = java.util.Arrays.stream(company.shippingTerms()).map(v -> v == null ? null : v.setScale(2).toPlainString()).toArray(String[]::new);
+        return new com.ticarvo.company.dto.ShippingTerms(t[0], t[1], t[2], t[3], t[4], t[5]);
+    }
+    @Transactional(readOnly = true)
     public CompanySummary summary(UUID companyId) {
         var company = companies.findById(companyId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SELLER_NOT_FOUND", "Seller was not found."));

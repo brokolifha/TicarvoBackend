@@ -20,6 +20,11 @@ public class SellerController {
             @RequestParam(defaultValue="20") int size) { return sellers.list(q, page, size); }
     @GetMapping("/sellers/{id}")
     public SellerResponse get(@PathVariable UUID id) { return sellers.get(id); }
+    @GetMapping("/companies/{id}/shipping-terms")
+    public com.ticarvo.company.dto.ShippingTerms shippingTerms(@PathVariable UUID id, Authentication auth) { return sellers.shippingTerms(id, auth); }
+    @PutMapping("/companies/{id}/shipping-terms")
+    public com.ticarvo.company.dto.ShippingTerms updateShippingTerms(@PathVariable UUID id,
+            @Valid @RequestBody com.ticarvo.company.dto.ShippingTerms request, Authentication auth) { return sellers.updateShippingTerms(id, request, auth); }
     @GetMapping("/companies/{id}/seller-profile")
     public SellerProfile profile(@PathVariable UUID id, Authentication auth) { return sellers.profile(id, auth); }
     @PutMapping("/companies/{id}/seller-profile")

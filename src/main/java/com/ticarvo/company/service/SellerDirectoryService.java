@@ -25,13 +25,29 @@ public class SellerDirectoryService {
     public SellerPage list(String q, int page, int size) {
         PageValidation.validatePage(page, size);
         var result = companies.directory(com.ticarvo.shared.validation.SearchText.likePattern(q), PageRequest.of(page, size, Sort.by("name").and(Sort.by("id"))));
-        return new SellerPage(result.stream().map(c -> new SellerResponse(c.getId(), c.getName())).toList(), page, size, result.getTotalElements());
+        return new SellerPage(result.stream().map(c -> new SellerResponse(c.getId(), c.getName(), CompanyAccessService.terms(c))).toList(), page, size, result.getTotalElements());
     }
     @Transactional(readOnly = true)
     public SellerResponse get(UUID id) {
         var company = companies.findByIdAndPublicSellerTrueAndSuspendedAtIsNull(id)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SELLER_NOT_FOUND", "Seller was not found."));
-        return new SellerResponse(company.getId(), company.getName());
+        return new SellerResponse(company.getId(), company.getName(), CompanyAccessService.terms(company));
+    }
+    @Transactional(readOnly = true)
+    public com.ticarvo.company.dto.ShippingTerms shippingTerms(UUID id, Authentication authentication) {
+        access.requireMember(id, authentication);
+        return access.shippingTerms(id);
+    }
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public com.ticarvo.company.dto.ShippingTerms updateShippingTerms(UUID id, com.ticarvo.company.dto.ShippingTerms terms, Authentication authentication) {
+        access.requireAdmin(id, authentication);
+        access.lockSeller(id);
+        access.requireAdmin(id, authentication);
+        var company = companies.findById(id).orElseThrow();
+        company.shippingTerms(java.util.stream.Stream.of(terms.b2bMinimumOrder(), terms.b2bShippingFee(), terms.b2bFreeShippingFrom(),
+            terms.b2cMinimumOrder(), terms.b2cShippingFee(), terms.b2cFreeShippingFrom())
+            .map(v -> v == null ? null : new java.math.BigDecimal(v).setScale(2)).toArray(java.math.BigDecimal[]::new));
+        return CompanyAccessService.terms(company);
     }
     @Transactional(readOnly = true)
     public SellerProfile profile(UUID id, Authentication authentication) {

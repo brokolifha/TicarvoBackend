@@ -4409,7 +4409,7 @@
             }
           },
           "default": {
-            "description": "Problem: 400 VALIDATION_FAILED/REQUEST_INVALID/MIXED_CURRENCY; 401; 403 CSRF/COMPANY_SUSPENDED; 404 COMPANY_NOT_FOUND/PRODUCT_NOT_FOUND (one answer for every visibility reason); 409 PRICE_CHANGED/INSUFFICIENT_STOCK/IDEMPOTENCY_KEY_REUSED; 413; 429 quota. 400 QUANTITY_NOT_ALLOWED when a line breaks the case pack or minimum quantity.",
+            "description": "Problem: 400 VALIDATION_FAILED/REQUEST_INVALID/MIXED_CURRENCY; 401; 403 CSRF/COMPANY_SUSPENDED; 404 COMPANY_NOT_FOUND/PRODUCT_NOT_FOUND (one answer for every visibility reason); 409 PRICE_CHANGED/INSUFFICIENT_STOCK/IDEMPOTENCY_KEY_REUSED; 413; 429 quota. 400 QUANTITY_NOT_ALLOWED when a line breaks the case pack or minimum quantity. 409 BELOW_MINIMUM_ORDER under the seller minimum.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5145,7 +5145,7 @@
             }
           },
           "default": {
-            "description": "Problem: 400 VALIDATION_FAILED/REQUEST_INVALID/MIXED_CURRENCY; 401; 403 CSRF; 404 PRODUCT_NOT_FOUND; 409 PRICE_CHANGED/INSUFFICIENT_STOCK/IDEMPOTENCY_KEY_REUSED; 413; 429 quota.",
+            "description": "Problem: 400 VALIDATION_FAILED/REQUEST_INVALID/MIXED_CURRENCY; 401; 403 CSRF; 404 PRODUCT_NOT_FOUND; 409 PRICE_CHANGED/INSUFFICIENT_STOCK/IDEMPOTENCY_KEY_REUSED; 413; 429 quota. 409 BELOW_MINIMUM_ORDER under the seller minimum.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5629,6 +5629,76 @@
           }
         }
       }
+    },
+    "/companies/{id}/shipping-terms": {
+      "get": {
+        "summary": "ADR-011: the seller's shipping terms (members)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Terms",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingTerms"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "put": {
+        "summary": "ADR-011: replace the shipping terms (ADMIN or OWNER); omitted fields become null",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingTerms"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Terms",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingTerms"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5795,7 +5865,8 @@
         "additionalProperties": false,
         "required": [
           "id",
-          "name"
+          "name",
+          "shippingTerms"
         ],
         "properties": {
           "id": {
@@ -5804,6 +5875,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "shippingTerms": {
+            "$ref": "#/components/schemas/ShippingTerms"
           }
         }
       },
@@ -7675,6 +7749,12 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "subtotalAmount": {
+            "type": "string"
+          },
+          "shippingAmount": {
+            "type": "string"
           }
         },
         "required": [
@@ -7698,7 +7778,9 @@
           "channel",
           "paymentMethod",
           "shippingAddress",
-          "deliveredAt"
+          "deliveredAt",
+          "subtotalAmount",
+          "shippingAmount"
         ]
       },
       "OrderEvent": {
@@ -8220,6 +8302,67 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "ShippingTerms": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "ADR-011: per-channel seller rules in TRY; null = no rule. Below the minimum an order is refused (409 BELOW_MINIMUM_ORDER); the fee applies until the goods subtotal reaches the free-shipping threshold. Not applied to non-TRY orders",
+        "properties": {
+          "b2bMinimumOrder": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]{1,15}(.[0-9]{1,2})?$"
+          },
+          "b2bShippingFee": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]{1,15}(.[0-9]{1,2})?$"
+          },
+          "b2bFreeShippingFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]{1,15}(.[0-9]{1,2})?$"
+          },
+          "b2cMinimumOrder": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]{1,15}(.[0-9]{1,2})?$"
+          },
+          "b2cShippingFee": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]{1,15}(.[0-9]{1,2})?$"
+          },
+          "b2cFreeShippingFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]{1,15}(.[0-9]{1,2})?$"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Problem": {
+        "description": "Problem (application/problem+json)",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
           }
         }
       }

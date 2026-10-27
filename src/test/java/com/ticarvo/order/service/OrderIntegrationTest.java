@@ -185,6 +185,26 @@ class OrderIntegrationTest {
         assertEquals(10,lineNode.get("vatRate").asInt()); assertEquals("BOX",lineNode.get("unit").asString());
     }
 
+    /** ADR-011: the seller's minimum order, shipping fee and free-shipping threshold apply at checkout. */
+    @Test void shippingTermsShapeTheOrder() throws Exception {
+        var buyer=user(); UUID b=company(buyer); var s=seller(); approve(buyer,b,s);
+        String p=product(s,"SHIP-1","Raf","10.00",b);
+        assertEquals("404 COMPANY_NOT_FOUND",outcome(send(buyer,"PUT","/api/v1/companies/"+s.id()+"/shipping-terms","{}")),"only the seller's own members");
+        var terms=json.readTree(send(s.user(),"PUT","/api/v1/companies/"+s.id()+"/shipping-terms",
+            "{\"b2bMinimumOrder\":\"100\",\"b2bShippingFee\":\"25\",\"b2bFreeShippingFrom\":\"500\",\"b2cShippingFee\":\"30\"}").body());
+        assertEquals("100.00",terms.get("b2bMinimumOrder").asString()); assertTrue(terms.get("b2cMinimumOrder").isNull());
+        var publicSeller=HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/api/v1/sellers/"+s.id())).GET().build(),
+            HttpResponse.BodyHandlers.ofString());
+        assertEquals("25.00",json.readTree(publicSeller.body()).get("shippingTerms").get("b2bShippingFee").asString(),
+            "buyers see the terms before ordering");
+        assertEquals("409 BELOW_MINIMUM_ORDER",outcome(order(buyer,b,"shipping-rule-1",checkout(group(s.id(),null,line(p,4,"10.00"))))));
+        var small=json.readTree(order(buyer,b,"shipping-rule-2",checkout(group(s.id(),null,line(p,12,"10.00")))).body()).get("orders").get(0);
+        assertEquals("120.00",small.get("subtotalAmount").asString()); assertEquals("25.00",small.get("shippingAmount").asString());
+        assertEquals("145.00",small.get("totalAmount").asString());
+        var large=json.readTree(order(buyer,b,"shipping-rule-3",checkout(group(s.id(),null,line(p,50,"10.00")))).body()).get("orders").get(0);
+        assertEquals("0.00",large.get("shippingAmount").asString(),"free from 500"); assertEquals("500.00",large.get("totalAmount").asString());
+    }
+
     /** A-01: a page of 100 orders names up to 101 companies; the name lookup used to throw above 100. */
     @Test void companyNamesForMoreThanOneHundredIds() throws Exception {
         var owner=user(); UUID real=company(owner);
