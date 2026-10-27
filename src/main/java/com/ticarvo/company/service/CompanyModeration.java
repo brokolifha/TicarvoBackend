@@ -16,4 +16,9 @@ public interface CompanyModeration {
     /** Must run inside the caller's transaction and takes the company row lock; 404 unknown, 409 if already in that state. */
     CompanyAdminViews.Company suspend(UUID companyId);
     CompanyAdminViews.Company restore(UUID companyId);
+    /** ADR-011 seller applications, oldest first. */
+    Page<com.ticarvo.company.dto.ProfileDtos.Profile> sellerApplications(int page, int size);
+    Optional<com.ticarvo.company.dto.ProfileDtos.Profile> profile(UUID companyId);
+    /** Inside the caller's transaction, under the company row lock: PENDING to VERIFIED or REJECTED, or VERIFIED to REJECTED (revoke). */
+    com.ticarvo.company.dto.ProfileDtos.Profile decideSeller(UUID companyId, com.ticarvo.company.model.SellerStatus outcome, String note);
 }

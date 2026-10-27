@@ -222,7 +222,7 @@ class TradeIntegrationTest {
         assertEquals(400,request(cb,"PUT",base+"/seller-profile","{\"listed\":true,\"role\":\"OWNER\"}",csrfB,"application/json",false).statusCode());
         assertEquals(200,request(cb,"PUT",base+"/seller-profile","{\"listed\":true}",csrfB,"application/json",false).statusCode());
         var publicSeller=request(client(),"GET","/api/v1/sellers/"+b.company(),null,null,null,false);
-        assertEquals(200,publicSeller.statusCode()); assertEquals(3,mapper.readTree(publicSeller.body()).size()); // id, name and, since ADR-011, the public shipping terms
+        assertEquals(200,publicSeller.statusCode()); assertEquals(8,mapper.readTree(publicSeller.body()).size()); // id, name and, since ADR-011, shipping terms and the public profile (no billing details)
         assertTrue(publicSeller.headers().firstValue("Cache-Control").orElse("").contains("no-store"));
         assertEquals(404,request(ca,"PUT",base+"/seller-profile","{\"listed\":false}",csrfA,"application/json",false).statusCode());
         String tooLarge="{\"listed\":true,\"padding\":\""+"a".repeat(17000)+"\"}";

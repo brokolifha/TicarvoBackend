@@ -46,6 +46,16 @@ public class AdminController {
         return moderation.restoreCompany(id, request, auth);
     }
 
+    @GetMapping("/seller-applications")
+    public AdminDtos.Page<com.ticarvo.company.dto.ProfileDtos.Profile> sellerApplications(@RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size, Authentication auth) { return moderation.sellerApplications(page, size, auth); }
+    @GetMapping("/companies/{id}/seller")
+    public com.ticarvo.company.dto.ProfileDtos.Profile seller(@PathVariable UUID id, Authentication auth) { return moderation.seller(id, auth); }
+    @PostMapping("/companies/{id}/seller-decision")
+    public com.ticarvo.company.dto.ProfileDtos.Profile decideSeller(@PathVariable UUID id, @Valid @RequestBody AdminDtos.SellerDecision request, Authentication auth) {
+        return moderation.decideSeller(id, request, auth);
+    }
+
     @GetMapping("/complaints")
     public AdminDtos.Page<AdminDtos.AdminComplaint> complaints(@RequestParam(required = false) ComplaintStatus status,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, Authentication auth) {

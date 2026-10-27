@@ -65,6 +65,25 @@ public class ModerationService {
         var emails = directory.summaries(companies.managerIds(companyId)).values().stream().map(u -> u.email()).toList();
         return suspended(TargetType.COMPANY, companyId, request, actor, emails);
     }
+    @Transactional(readOnly = true)
+    public AdminDtos.Page<com.ticarvo.company.dto.ProfileDtos.Profile> sellerApplications(int page, int size, Authentication auth) {
+        admin.requireAdmin(auth);
+        PageValidation.validatePage(page, size);
+        var result = companies.sellerApplications(page, size);
+        return new AdminDtos.Page<>(result.getContent(), page, size, result.getTotalElements());
+    }
+    @Transactional(readOnly = true)
+    public com.ticarvo.company.dto.ProfileDtos.Profile seller(UUID companyId, Authentication auth) {
+        admin.requireAdmin(auth);
+        return companies.profile(companyId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COMPANY_NOT_FOUND", "Company was not found."));
+    }
+    @Transactional
+    public com.ticarvo.company.dto.ProfileDtos.Profile decideSeller(UUID companyId, AdminDtos.SellerDecision request, Authentication auth) {
+        UUID actor = admin.requireAdmin(auth);
+        var profile = companies.decideSeller(companyId, request.outcome(), request.note());
+        admin.record(actor, "SELLER_" + request.outcome(), "COMPANY", companyId);
+        return profile;
+    }
     @Transactional
     public AdminDtos.RestrictionView restoreUser(UUID userId, AdminDtos.Restore request, Authentication auth) {
         UUID actor = admin.requireAdmin(auth);

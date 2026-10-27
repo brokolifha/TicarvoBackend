@@ -39,7 +39,7 @@ class MigrationUpgradeTest {
         String url=TestDatabaseUrlGuard.upgradeUrl(required("TEST_DB_URL"));
         String user=required("TEST_DB_USERNAME"),password=required("TEST_DB_PASSWORD");
         var latest=Flyway.configure().dataSource(url,user,password).cleanDisabled(false).load();
-        latest.clean(); assertEquals(14,latest.migrate().migrationsExecuted); assertEquals(0,latest.migrate().migrationsExecuted);
+        latest.clean(); assertEquals(15,latest.migrate().migrationsExecuted); assertEquals(0,latest.migrate().migrationsExecuted);
         latest.clean();Flyway.configure().dataSource(url,user,password).target("3").load().migrate();
         String owner=UUID.randomUUID().toString(),seller=UUID.randomUUID().toString(),buyer=UUID.randomUUID().toString();
         try(var connection=DriverManager.getConnection(url,user,password);var sql=connection.createStatement()){
@@ -49,7 +49,7 @@ class MigrationUpgradeTest {
             sql.executeUpdate("INSERT INTO trade_relationships VALUES(UUID(),'"+buyer+"','"+seller+"','APPROVED',1,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'"+owner+"','"+owner+"')");
             sql.executeUpdate("INSERT INTO seller_invitations VALUES('"+seller+"',REPEAT('a',64),UTC_TIMESTAMP(6),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY),NULL,'"+owner+"')");
         }
-        assertEquals(11,latest.migrate().migrationsExecuted);assertEquals(0,latest.migrate().migrationsExecuted);
+        assertEquals(12,latest.migrate().migrationsExecuted);assertEquals(0,latest.migrate().migrationsExecuted);
         try(var connection=DriverManager.getConnection(url,user,password);var sql=connection.createStatement()){
             for(String table:java.util.List.of("app_users","company_memberships","trade_relationships","seller_invitations")){
                 try(var rows=sql.executeQuery("SELECT COUNT(*) FROM "+table)){assertTrue(rows.next());assertEquals(1,rows.getLong(1),table);}

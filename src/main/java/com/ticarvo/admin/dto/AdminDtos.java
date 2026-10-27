@@ -41,5 +41,7 @@ public final class AdminDtos {
     public record UserDetail(AccountView account, boolean platformAdmin, List<CompanyAdminViews.Membership> companies,
         List<RestrictionView> restrictions) {}
     public record Member(UUID userId, String email, String displayName, String role) {}
+    /** ADR-011; a rejection (or revoking a verification) needs a note, which the company sees. */
+    public record SellerDecision(@NotNull com.ticarvo.company.model.SellerStatus outcome, @Size(max = 500) String note) {}
     public record CompanyDetail(CompanyAdminViews.Company company, List<Member> members, List<RestrictionView> restrictions) {}
 }

@@ -201,7 +201,7 @@ public class CatalogService {
     public CatalogDtos.Owner addImage(UUID seller,UUID id,long expectedVersion,byte[] content,Authentication auth) {
         // Cheap membership gate first, so outsiders cannot make the server decode images.
         companies.requireMember(seller,auth);
-        var processed=ProductImages.process(content);
+        var processed=com.ticarvo.shared.storage.Images.process(content);
         UUID actor=authorize(seller,seller,auth,PRODUCT_MUTATE);
         var p=product(seller,id);
         version(p,expectedVersion);
@@ -227,7 +227,7 @@ public class CatalogService {
         var rest=images.findByProductIdOrderByPositionAsc(id);
         for(int i=0;i<rest.size();i++) rest.get(i).moveTo(i);
         var keys=new ArrayList<String>(List.of(image.storageKey()));
-        ProductImages.SIZES.forEach(size->keys.add(image.storageKey(size)));
+        com.ticarvo.shared.storage.Images.SIZES.forEach(size->keys.add(image.storageKey(size)));
         // Delete the files only once the row is gone for good; a failed commit leaves the image intact.
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() { keys.forEach(store::delete); }
@@ -340,8 +340,8 @@ public class CatalogService {
     }
     /** size null: the original; 320 or 1024: that copy, or the original when it is already that small or predates B-05. */
     static CatalogDtos.ImageContent content(ProductImageRepository images,ImageStore store,UUID productId,UUID imageId,Integer size) {
-        if(size!=null&&!ProductImages.SIZES.contains(size)) {
-            throw error(HttpStatus.BAD_REQUEST,"VALIDATION_FAILED","Image size must be one of "+ProductImages.SIZES+".");
+        if(size!=null&&!com.ticarvo.shared.storage.Images.SIZES.contains(size)) {
+            throw error(HttpStatus.BAD_REQUEST,"VALIDATION_FAILED","Image size must be one of "+com.ticarvo.shared.storage.Images.SIZES+".");
         }
         var image=images.findByIdAndProductId(imageId,productId).orElseThrow(CatalogService::imageNotFound);
         String key=size!=null&&store.exists(image.storageKey(size)) ? image.storageKey(size) : image.storageKey();

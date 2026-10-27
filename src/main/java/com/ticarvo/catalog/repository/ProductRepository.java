@@ -24,8 +24,9 @@ public interface ProductRepository extends JpaRepository<Product,UUID> {
     Page<Product> ownerList(@Param("seller") UUID seller,@Param("status") ProductStatus status,@Param("pattern") String pattern,
         @Param("anyCategory") boolean anyCategory,@Param("categories") Collection<UUID> categories,Pageable page);
 
-    // Read-only filter on the company table: a suspended seller disappears for everyone else (ADR-008).
-    String ACTIVE_SELLER=" and not exists(select c from Company c where c.id=p.sellerCompanyId and c.suspendedAt is not null)";
+    // Read-only filter on the company table: a suspended seller (ADR-008) or one without the selling permission (ADR-011)
+    // disappears for everyone else and cannot take orders.
+    String ACTIVE_SELLER=" and not exists(select c from Company c where c.id=p.sellerCompanyId and (c.suspendedAt is not null or c.sellingEnabled=false))";
 
     // Buyer visibility: same seller, PUBLISHED and an explicit grant. The relationship check happens in the service.
     @Query("select p from Product p where p.sellerCompanyId=:seller"

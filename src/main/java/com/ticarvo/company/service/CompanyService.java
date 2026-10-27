@@ -22,15 +22,17 @@ public class CompanyService {
     private final MembershipRepository memberships;
     private final CurrentUserProvider identity;
     private final PrincipalRateLimit limits;
-    public CompanyService(CompanyRepository companies, MembershipRepository memberships, CurrentUserProvider identity, PrincipalRateLimit limits) {
-        this.limits = limits;
+    private final boolean verificationRequired;
+    public CompanyService(CompanyRepository companies, MembershipRepository memberships, CurrentUserProvider identity, PrincipalRateLimit limits,
+            @org.springframework.beans.factory.annotation.Value("${ticarvo.sellers.verification-required:true}") boolean verificationRequired) {
+        this.limits = limits; this.verificationRequired = verificationRequired;
         this.companies = companies; this.memberships = memberships; this.identity = identity;
     }
     @Transactional
     public CompanyResponse create(String name, Authentication authentication) {
         var userId = identity.currentUserId(authentication);
         limits.check(PrincipalRateLimit.Operation.COMPANY_CREATE, userId);
-        var company = companies.save(new Company(name.strip()));
+        var company = companies.save(new Company(name.strip(), !verificationRequired));
         return response(memberships.save(new Membership(company, userId)));
     }
     @Transactional(readOnly = true)

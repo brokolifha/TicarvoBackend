@@ -55,7 +55,7 @@ public class SecurityConfiguration {
             .csrf(Customizer.withDefaults())
             .requestCache(cache -> cache.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/actuator/health", "/api/v1/auth/csrf", "/api/v1/sellers", "/api/v1/sellers/{id}", "/api/v1/catalog/products", "/api/v1/catalog/products/{productId}",
+                .requestMatchers(HttpMethod.GET, "/actuator/health", "/api/v1/auth/csrf", "/api/v1/sellers", "/api/v1/sellers/{id}", "/api/v1/sellers/{id}/logo", "/api/v1/catalog/products", "/api/v1/catalog/products/{productId}",
                     "/api/v1/catalog/products/{productId}/images/{imageId}", "/api/v1/catalog/categories").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/email-verification",
                     "/api/v1/auth/email-verification/resend", "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset", "/api/v1/moderation/appeals").permitAll()

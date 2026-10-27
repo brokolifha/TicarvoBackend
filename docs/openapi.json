@@ -5699,6 +5699,391 @@
           }
         }
       }
+    },
+    "/companies/{id}/profile": {
+      "get": {
+        "summary": "ADR-011: company profile (MEMBER+)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CompanyProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "put": {
+        "summary": "ADR-011: replace the profile (ADMIN+)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CompanyProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/companies/{id}/seller-application": {
+      "post": {
+        "summary": "ADR-011: apply as a seller (ADMIN+); 409 PROFILE_INCOMPLETE or SELLER_STATUS_CONFLICT",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CompanyProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/companies/{id}/logo": {
+      "get": {
+        "summary": "ADR-011: the company logo (MEMBER+); 404 LOGO_NOT_FOUND",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The logo (image/png or image/jpeg, at most 320 px per side)",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "post": {
+        "summary": "ADR-011: upload a JPEG/PNG logo (ADMIN+; 5 MB, 4000 px; re-encoded, metadata dropped, kept at 320 px)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CompanyProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "delete": {
+        "summary": "ADR-011: remove the logo (ADMIN+)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CompanyProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/sellers/{id}/logo": {
+      "get": {
+        "summary": "ADR-011: public logo of a listed, selling seller",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The logo (image/png or image/jpeg, at most 320 px per side)",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/admin/seller-applications": {
+      "get": {
+        "summary": "ADR-011: PENDING seller applications, oldest first (platform admin, MFA session)",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of profiles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CompanyProfile"
+                      }
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "size": {
+                      "type": "integer"
+                    },
+                    "totalElements": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/admin/companies/{id}/seller": {
+      "get": {
+        "summary": "ADR-011: a company's profile with billing details (platform admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CompanyProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/admin/companies/{id}/seller-decision": {
+      "post": {
+        "summary": "ADR-011: verify or reject a PENDING application, or revoke a verification (REJECTED); audited as SELLER_VERIFIED / SELLER_REJECTED. 409 SELLER_STATUS_CONFLICT",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CompanyProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5866,7 +6251,12 @@
         "required": [
           "id",
           "name",
-          "shippingTerms"
+          "shippingTerms",
+          "description",
+          "website",
+          "city",
+          "hasLogo",
+          "verified"
         ],
         "properties": {
           "id": {
@@ -5878,6 +6268,32 @@
           },
           "shippingTerms": {
             "$ref": "#/components/schemas/ShippingTerms"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "website": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasLogo": {
+            "type": "boolean",
+            "description": "GET /sellers/{id}/logo"
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "A platform admin checked the billing details (ADR-011)"
           }
         }
       },
@@ -8351,6 +8767,181 @@
               "null"
             ],
             "pattern": "^[0-9]{1,15}(.[0-9]{1,2})?$"
+          }
+        }
+      },
+      "SellerStatus": {
+        "type": "string",
+        "enum": [
+          "NONE",
+          "PENDING",
+          "VERIFIED",
+          "REJECTED"
+        ],
+        "description": "ADR-011: NONE -> PENDING (application) -> VERIFIED or REJECTED; a rejected company may apply again; an admin may revoke a verification (REJECTED)."
+      },
+      "Billing": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Every field is needed to apply; locked (409 BILLING_LOCKED) while PENDING or VERIFIED. taxId is a VKN (10 digits) or TCKN (11 digits) with valid check digits (400 TAX_ID_INVALID).",
+        "properties": {
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "taxId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^([0-9]{10}|[1-9][0-9]{10})$"
+          },
+          "taxOffice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\+?[0-9]{10,15}$"
+          }
+        }
+      },
+      "ProfileEdit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "billing"
+        ],
+        "description": "Replaces the whole profile; null or blank clears a field.",
+        "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/Billing"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "website": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "pattern": "^https?://\\S+$"
+          }
+        }
+      },
+      "CompanyProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "companyId",
+          "name",
+          "billing",
+          "description",
+          "website",
+          "hasLogo",
+          "sellerStatus",
+          "sellerNote",
+          "sellerAppliedAt",
+          "sellingEnabled"
+        ],
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "billing": {
+            "$ref": "#/components/schemas/Billing"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "website": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasLogo": {
+            "type": "boolean"
+          },
+          "sellerStatus": {
+            "$ref": "#/components/schemas/SellerStatus"
+          },
+          "sellerNote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The admin's reason when REJECTED"
+          },
+          "sellerAppliedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "sellingEnabled": {
+            "type": "boolean",
+            "description": "Products appear in catalogs and take orders only when true; with ticarvo.sellers.verification-required (production) only after VERIFIED."
+          }
+        }
+      },
+      "SellerDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "outcome"
+        ],
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "VERIFIED",
+              "REJECTED"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "description": "Required for REJECTED; the company sees it."
           }
         }
       }

@@ -40,6 +40,8 @@ class AdminIntegrationTest {
         registry.add("spring.datasource.password",()->required("TEST_DB_PASSWORD"));
         registry.add("ticarvo.mail.outbox-dir",OUTBOX::toString);
         registry.add("ticarvo.storage.image-dir",()->tempDirectory("ticarvo-m4a-images").toString());
+        // ADR-011: this class runs with the production rule, new companies need admin verification to sell.
+        registry.add("ticarvo.sellers.verification-required",()->"true");
     }
     @Autowired IdentityService identity;
     @Autowired AdminAccess admins;
@@ -118,6 +120,7 @@ class AdminIntegrationTest {
 
     @Test void suspensionsHideAndBlockAndCanBeAppealed() throws Exception {
         var seller=user(); UUID s=company(seller); var buyer=user(); UUID b=company(buyer); var newcomer=user(); UUID n=company(newcomer);
+        jdbc.update("UPDATE companies SET selling_enabled=TRUE WHERE id=?",s.toString()); // verified seller, as in production
         assertEquals(200,send(seller,"PUT","/api/v1/companies/"+s+"/seller-profile","{\"listed\":true}").statusCode());
         String relation=json.readTree(send(buyer,"POST","/api/v1/companies/"+b+"/trade-relationships","{\"sellerCompanyId\":\""+s+"\"}").body()).get("id").asString();
         assertEquals(200,send(seller,"POST","/api/v1/companies/"+s+"/trade-relationships/"+relation+"/approve","{\"expectedVersion\":0}").statusCode());
@@ -173,6 +176,83 @@ class AdminIntegrationTest {
         assertEquals(204,loginResponse(client(),buyer.email(),PASSWORD,null).statusCode());
         assertEquals(List.of("USER_SUSPENDED","USER_RESTORED"),
             jdbc.queryForList("SELECT action FROM admin_audit_log WHERE target_id=? ORDER BY created_at",String.class,buyer.id().toString()));
+    }
+
+    /** ADR-011 with the production setting: a new company sells only once a platform admin has verified its billing details. */
+    @Test void sellersSellOnlyAfterAPlatformAdminVerifiesThem() throws Exception {
+        var seller=user(); UUID s=company(seller); String c="/api/v1/companies/"+s;
+        var profile=json.readTree(send(seller,"GET",c+"/profile",null).body());
+        assertEquals("NONE",profile.get("sellerStatus").asString());
+        assertFalse(profile.get("sellingEnabled").asBoolean(),"a new company cannot sell before verification");
+        assertEquals(200,send(seller,"PUT",c+"/seller-profile","{\"listed\":true}").statusCode());
+        var p=json.readTree(send(seller,"POST",c+"/products",
+            "{\"sku\":\"VER-1\",\"name\":\"Verified Goods\",\"price\":{\"amount\":\"1\",\"currency\":\"TRY\",\"taxIncluded\":false}}").body());
+        String pc=c+"/products/"+p.get("id").asString(), pub="/api/v1/catalog/products/"+p.get("id").asString();
+        long v=json.readTree(send(seller,"POST",pc+"/publish","{\"expectedVersion\":0}").body()).get("version").asLong();
+        assertEquals(200,send(seller,"PUT",pc+"/public-visibility","{\"expectedVersion\":"+v+",\"publicVisible\":true}").statusCode());
+        assertEquals("404 PRODUCT_NOT_FOUND",outcome(request(null,"GET",pub,null,null)),"an unverified seller's products stay hidden");
+        assertEquals("404 SELLER_NOT_FOUND",outcome(request(null,"GET","/api/v1/sellers/"+s,null,null)));
+        assertTrue(json.readTree(send(seller,"GET",c+"/seller-profile",null).body()).get("listed").asBoolean(),"the owner still sees the switch");
+
+        String billing="\"legalName\":\"Synthetic Ticaret A.S.\",\"taxId\":\"%s\",\"taxOffice\":\"Kadikoy\",\"address\":\"Synthetic street 1\",\"city\":\"Istanbul\",\"phone\":\"+905551112233\"";
+        String edit="{\"billing\":{"+billing+"},\"description\":\"%s\",\"website\":\"https://example.invalid\"}";
+        assertEquals("409 PROFILE_INCOMPLETE",outcome(send(seller,"POST",c+"/seller-application",null)));
+        assertEquals("400 TAX_ID_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("1234567891","Wrong check digit"))));
+        assertEquals("400 REQUEST_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("12ab567890","Not digits"))));
+        assertEquals("400 TAX_ID_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000147","TCKN wrong check digit"))));
+        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("10000000146","Sole trader TCKN")).statusCode());
+        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("1234567890","Wholesale since 1990")).statusCode());
+        var logo=upload(seller,c+"/logo",com.ticarvo.shared.storage.ImagesTest.encode("png",800,400));
+        assertEquals(200,logo.statusCode(),logo.body());
+        assertTrue(json.readTree(logo.body()).get("hasLogo").asBoolean());
+        assertEquals("image/png",request(seller,"GET",c+"/logo",null,null).headers().firstValue("Content-Type").orElseThrow());
+        assertEquals("404 SELLER_NOT_FOUND",outcome(request(null,"GET","/api/v1/sellers/"+s+"/logo",null,null)));
+
+        assertEquals("PENDING",json.readTree(send(seller,"POST",c+"/seller-application",null).body()).get("sellerStatus").asString());
+        assertEquals("409 SELLER_STATUS_CONFLICT",outcome(send(seller,"POST",c+"/seller-application",null)));
+        assertEquals("409 BILLING_LOCKED",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000146","Swap the tax id"))));
+        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("1234567890","The showcase stays editable")).statusCode());
+        String decision="/api/v1/admin/companies/"+s+"/seller-decision";
+        assertEquals("403 PLATFORM_ADMIN_REQUIRED",outcome(send(seller,"POST",decision,"{\"outcome\":\"VERIFIED\"}")));
+
+        var admin=login(admin());
+        var queue=json.readTree(send(admin,"GET","/api/v1/admin/seller-applications?size=100",null).body()).get("content");
+        assertTrue(queue.toString().contains(s.toString()),"the application is in the admin queue");
+        assertEquals("1234567890",json.readTree(send(admin,"GET","/api/v1/admin/companies/"+s+"/seller",null).body()).get("billing").get("taxId").asString());
+        assertEquals("400 VALIDATION_FAILED",outcome(send(admin,"POST",decision,"{\"outcome\":\"REJECTED\"}")),"a rejection needs a reason");
+        assertEquals("400 VALIDATION_FAILED",outcome(send(admin,"POST",decision,"{\"outcome\":\"PENDING\"}")));
+        var rejected=json.readTree(send(admin,"POST",decision,"{\"outcome\":\"REJECTED\",\"note\":\"Tax office does not match.\"}").body());
+        assertEquals("REJECTED",rejected.get("sellerStatus").asString());
+        assertEquals("Tax office does not match.",json.readTree(send(seller,"GET",c+"/profile",null).body()).get("sellerNote").asString());
+        assertEquals("409 SELLER_STATUS_CONFLICT",outcome(send(admin,"POST",decision,"{\"outcome\":\"VERIFIED\"}")),"nothing to decide until it applies again");
+        assertEquals("PENDING",json.readTree(send(seller,"POST",c+"/seller-application",null).body()).get("sellerStatus").asString());
+        var verified=json.readTree(send(admin,"POST",decision,"{\"outcome\":\"VERIFIED\"}").body());
+        assertTrue(verified.get("sellingEnabled").asBoolean());
+
+        assertEquals(200,request(null,"GET",pub,null,null).statusCode(),"verified: the product is public");
+        var publicSeller=json.readTree(request(null,"GET","/api/v1/sellers/"+s,null,null).body());
+        assertTrue(publicSeller.get("verified").asBoolean() && publicSeller.get("hasLogo").asBoolean());
+        assertEquals("Istanbul",publicSeller.get("city").asString());
+        assertEquals(200,request(null,"GET","/api/v1/sellers/"+s+"/logo",null,null).statusCode());
+        assertEquals("409 BILLING_LOCKED",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000146","Still locked"))));
+
+        // Revoking a verification stops the selling again.
+        assertEquals("REJECTED",json.readTree(send(admin,"POST",decision,"{\"outcome\":\"REJECTED\",\"note\":\"Verification revoked.\"}").body()).get("sellerStatus").asString());
+        assertEquals(404,request(null,"GET",pub,null,null).statusCode());
+        assertEquals(List.of("SELLER_REJECTED","SELLER_VERIFIED","SELLER_REJECTED"),
+            jdbc.queryForList("SELECT action FROM admin_audit_log WHERE target_id=? ORDER BY created_at",String.class,s.toString()));
+        assertEquals(200,send(seller,"DELETE",c+"/logo",null).statusCode());
+        assertEquals("404 LOGO_NOT_FOUND",outcome(request(seller,"GET",c+"/logo",null,null)));
+    }
+    HttpResponse<String> upload(User user,String path,byte[] file) throws Exception {
+        String boundary="ticarvo-"+UUID.randomUUID();
+        var body=new java.io.ByteArrayOutputStream();
+        body.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\"logo.png\"\r\nContent-Type: image/png\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+        body.write(file);
+        body.write(("\r\n--"+boundary+"--\r\n").getBytes(StandardCharsets.US_ASCII));
+        var builder=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path)).POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
+            .header("Content-Type","multipart/form-data; boundary="+boundary).header("X-CSRF-TOKEN",csrf(user));
+        return user.http().send(builder.build(),HttpResponse.BodyHandlers.ofString());
     }
 
     Admin admin() throws Exception {

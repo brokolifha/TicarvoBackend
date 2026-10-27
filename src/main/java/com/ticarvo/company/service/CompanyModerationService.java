@@ -23,8 +23,10 @@ public class CompanyModerationService implements CompanyModeration {
     private final CompanyRepository companies;
     private final MembershipRepository memberships;
     private final Clock clock;
-    public CompanyModerationService(CompanyRepository companies, MembershipRepository memberships, Clock clock) {
-        this.companies = companies; this.memberships = memberships; this.clock = clock;
+    private final boolean verificationRequired;
+    public CompanyModerationService(CompanyRepository companies, MembershipRepository memberships, Clock clock,
+            @org.springframework.beans.factory.annotation.Value("${ticarvo.sellers.verification-required:true}") boolean verificationRequired) {
+        this.companies = companies; this.memberships = memberships; this.clock = clock; this.verificationRequired = verificationRequired;
     }
     @Transactional(readOnly = true)
     public Page<CompanyAdminViews.Company> search(String likePattern, int page, int size) {
@@ -62,6 +64,29 @@ public class CompanyModerationService implements CompanyModeration {
         if (!company.isSuspended()) throw new ApiException(HttpStatus.CONFLICT, "NOT_SUSPENDED", "The company is not suspended.");
         company.restore();
         return view(company);
+    }
+    @Transactional(readOnly = true)
+    public Page<com.ticarvo.company.dto.ProfileDtos.Profile> sellerApplications(int page, int size) {
+        return companies.findBySellerStatus(com.ticarvo.company.model.SellerStatus.PENDING,
+            PageRequest.of(page, size, Sort.by("sellerAppliedAt").and(Sort.by("id")))).map(CompanyProfileService::profile);
+    }
+    @Transactional(readOnly = true)
+    public Optional<com.ticarvo.company.dto.ProfileDtos.Profile> profile(UUID companyId) { return companies.findById(companyId).map(CompanyProfileService::profile); }
+    @Transactional(propagation = Propagation.MANDATORY)
+    public com.ticarvo.company.dto.ProfileDtos.Profile decideSeller(UUID companyId, com.ticarvo.company.model.SellerStatus outcome, String note) {
+        boolean verify = outcome == com.ticarvo.company.model.SellerStatus.VERIFIED;
+        if (!verify && outcome != com.ticarvo.company.model.SellerStatus.REJECTED) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "The outcome must be VERIFIED or REJECTED.");
+        }
+        String reason = CompanyProfileService.clean(note);
+        if (!verify && reason == null) throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "A rejection needs a reason.");
+        var company = lock(companyId);
+        var current = company.getSellerStatus();
+        boolean allowed = current == com.ticarvo.company.model.SellerStatus.PENDING || (!verify && current == com.ticarvo.company.model.SellerStatus.VERIFIED);
+        if (!allowed) throw new ApiException(HttpStatus.CONFLICT, "SELLER_STATUS_CONFLICT", "The company has no application in a state this decision applies to.");
+        // Without the verification requirement (local development) every company may sell anyway.
+        company.seller(outcome, verify ? null : reason, company.getSellerAppliedAt(), verify || !verificationRequired);
+        return CompanyProfileService.profile(company);
     }
     private Company lock(UUID companyId) {
         return companies.findByIdForUpdate(companyId)

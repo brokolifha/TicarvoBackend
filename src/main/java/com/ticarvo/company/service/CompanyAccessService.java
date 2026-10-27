@@ -95,7 +95,8 @@ public class CompanyAccessService implements CompanyAccess {
         return summary(company);
     }
     static CompanySummary summary(Company company) {
-        return new CompanySummary(company.getId(), company.getName(), company.isPublicSeller(), company.isSuspended());
+        // Listed means visible to buyers: it also needs the selling permission (ADR-011).
+        return new CompanySummary(company.getId(), company.getName(), company.isPublicSeller() && company.isSellingEnabled(), company.isSuspended());
     }
     @Transactional(readOnly = true)
     public java.util.Map<UUID,CompanySummary> summaries(java.util.Collection<UUID> ids) {

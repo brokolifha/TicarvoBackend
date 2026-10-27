@@ -1,4 +1,4 @@
-package com.ticarvo.catalog.service;
+package com.ticarvo.shared.storage;
 import com.ticarvo.shared.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import javax.imageio.IIOImage;
@@ -10,19 +10,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /**
- * Validates and re-encodes uploaded product images (ADR-007): JPEG/PNG detected from the bytes, dimensions read
+ * Validates and re-encodes uploaded images (products, company logos) (ADR-007): JPEG/PNG detected from the bytes, dimensions read
  * from the header before decoding, and a fresh encode so embedded metadata (EXIF, GPS, comments) is dropped.
  */
-final class ProductImages {
-    static final int MAX_BYTES = 5 * 1024 * 1024;
-    static final int MAX_SIDE = 4000;
+public final class Images {
+    public static final int MAX_BYTES = 5 * 1024 * 1024;
+    public static final int MAX_SIDE = 4000;
     /** Longest-side sizes served with ?size= (B-05); a copy exists only when the original is larger. */
-    static final java.util.List<Integer> SIZES = java.util.List.of(320, 1024);
-    record Processed(String contentType, byte[] bytes, int width, int height, java.util.Map<Integer, byte[]> variants) {}
+    public static final java.util.List<Integer> SIZES = java.util.List.of(320, 1024);
+    public record Processed(String contentType, byte[] bytes, int width, int height, java.util.Map<Integer, byte[]> variants) {}
     static { ImageIO.setUseCache(false); }
-    private ProductImages() {}
+    private Images() {}
 
-    static Processed process(byte[] input) {
+    public static Processed process(byte[] input) {
         if (input == null || input.length == 0 || input.length > MAX_BYTES) throw invalid();
         String format = isJpeg(input) ? "jpeg" : isPng(input) ? "png" : null;
         if (format == null) throw invalid();

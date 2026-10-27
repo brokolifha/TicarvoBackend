@@ -25,13 +25,17 @@ public class SellerDirectoryService {
     public SellerPage list(String q, int page, int size) {
         PageValidation.validatePage(page, size);
         var result = companies.directory(com.ticarvo.shared.validation.SearchText.likePattern(q), PageRequest.of(page, size, Sort.by("name").and(Sort.by("id"))));
-        return new SellerPage(result.stream().map(c -> new SellerResponse(c.getId(), c.getName(), CompanyAccessService.terms(c))).toList(), page, size, result.getTotalElements());
+        return new SellerPage(result.stream().map(SellerDirectoryService::seller).toList(), page, size, result.getTotalElements());
     }
     @Transactional(readOnly = true)
     public SellerResponse get(UUID id) {
-        var company = companies.findByIdAndPublicSellerTrueAndSuspendedAtIsNull(id)
+        var company = companies.findByIdAndPublicSellerTrueAndSuspendedAtIsNullAndSellingEnabledTrue(id)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SELLER_NOT_FOUND", "Seller was not found."));
-        return new SellerResponse(company.getId(), company.getName(), CompanyAccessService.terms(company));
+        return seller(company);
+    }
+    static SellerResponse seller(com.ticarvo.company.entity.Company c) {
+        return new SellerResponse(c.getId(), c.getName(), CompanyAccessService.terms(c), c.getDescription(), c.getWebsite(), c.getCity(),
+            c.getLogoKey() != null, c.getSellerStatus() == com.ticarvo.company.model.SellerStatus.VERIFIED);
     }
     @Transactional(readOnly = true)
     public com.ticarvo.company.dto.ShippingTerms shippingTerms(UUID id, Authentication authentication) {
@@ -52,7 +56,7 @@ public class SellerDirectoryService {
     @Transactional(readOnly = true)
     public SellerProfile profile(UUID id, Authentication authentication) {
         access.requireMember(id, authentication);
-        return new SellerProfile(id, access.summary(id).listed());
+        return new SellerProfile(id, companies.findById(id).orElseThrow().isPublicSeller());
     }
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public SellerProfile update(UUID id, boolean listed, Authentication authentication) {
