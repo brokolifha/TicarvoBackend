@@ -46,7 +46,7 @@ public class AccountService {
     @Transactional
     public void sendVerification(AppUser user) {
         issue(user, Purpose.EMAIL_VERIFICATION, VERIFICATION_TTL, "Ticarvo e-posta doğrulama",
-            "E-posta adresinizi doğrulamak için bu kodu kullanın (24 saat geçerli):\n");
+            "E-posta adresinizi doğrulamak için " + mail.page("/e-posta-dogrula") + " sayfasında bu kodu girin (24 saat geçerli):\n");
     }
     @Transactional
     public void resendVerification(String email) {
@@ -70,7 +70,7 @@ public class AccountService {
     @Transactional
     public void requestPasswordReset(String email) {
         users.findByEmail(IdentityService.normalizeEmail(email)).ifPresent(user -> issue(user, Purpose.PASSWORD_RESET, RESET_TTL,
-            "Ticarvo parola sıfırlama", "Parolanızı sıfırlamak için bu kodu kullanın (30 dakika geçerli). İstemediyseniz yok sayın:\n"));
+            "Ticarvo parola sıfırlama", "Parolanızı sıfırlamak için " + mail.page("/parola-sifirla") + " sayfasında bu kodu girin (30 dakika geçerli). İstemediyseniz yok sayın:\n"));
     }
     @Transactional
     public void resetPassword(String token, String newPassword) {
@@ -114,7 +114,7 @@ public class AccountService {
         String token = SecureTokens.generate();
         tokens.saveAndFlush(AccountToken.emailChange(user.getId(), target, SecureTokens.sha256Hex(token), now, now.plus(EMAIL_CHANGE_TTL)));
         mail.send(email, "Ticarvo e-posta değişikliği isteği", "Hesabınızın e-posta adresini değiştirme isteği alındı. Bunu siz yapmadıysanız parolanızı değiştirin.");
-        mail.send(target, "Ticarvo yeni e-posta adresinizi doğrulayın", "Yeni adresinizi onaylamak için bu kodu kullanın (1 saat geçerli):\n" + token);
+        mail.send(target, "Ticarvo yeni e-posta adresinizi doğrulayın", "Yeni adresinizi onaylamak için " + mail.page("/panel/hesap") + " sayfasında bu kodu girin (1 saat geçerli):\n" + token);
     }
     /** Needs the signed-in account that asked; afterwards every session ends and the new address is the login. */
     @Transactional

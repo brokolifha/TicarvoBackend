@@ -13,12 +13,17 @@ import java.util.UUID;
 @Component
 public class MailOutbox {
     private final Path directory;
-    public MailOutbox(@Value("${ticarvo.mail.outbox-dir:}") String directory) {
+    private final String baseUrl;
+    public MailOutbox(@Value("${ticarvo.mail.outbox-dir:}") String directory,
+            @Value("${ticarvo.public-base-url:http://localhost:5173}") String baseUrl) {
+        this.baseUrl = baseUrl.replaceAll("/+$", "");
         if (directory.isBlank()) {
             throw new IllegalStateException("ticarvo.mail.outbox-dir is required until a real mail provider is configured.");
         }
         this.directory = Path.of(directory);
     }
+    /** The address of a frontend page; mails link to the page and give the code separately, never in the URL. */
+    public String page(String path) { return baseUrl + path; }
     public void send(String to, String subject, String body) {
         try {
             Files.createDirectories(directory);

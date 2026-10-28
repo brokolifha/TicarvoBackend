@@ -82,7 +82,7 @@ public class MemberService {
         var invitation = invitations.saveAndFlush(new MemberInvitation(companyId, email, request.role(),
             SecureTokens.sha256Hex(token), actor, now, now.plus(INVITATION_TTL)));
         mail.send(email, "Ticarvo firma daveti", company.getName() + " firmasına " + request.role()
-            + " olarak davet edildiniz. Ticarvo hesabınızla giriş yapıp bu kodla kabul edin (7 gün geçerli):\n" + token);
+            + " olarak davet edildiniz. Ticarvo hesabınızla giriş yapıp " + mail.page("/panel/davet") + " sayfasında bu kodu girin (7 gün geçerli):\n" + token);
         return invitation(invitation);
     }
     @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)

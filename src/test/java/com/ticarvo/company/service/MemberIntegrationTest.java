@@ -164,6 +164,8 @@ class MemberIntegrationTest {
         try(var files=Files.list(OUTBOX)) {
             var mail=files.filter(file->read(file).startsWith("To: "+email+"\n")).sorted().toList().getLast();
             var lines=read(mail).strip().split("\n");
+            // ADR-012: the mail links to the page that takes the code; the code is never part of the link.
+            if(read(mail).contains("Subject: Ticarvo firma daveti")) assertTrue(read(mail).contains("http://localhost:5173/panel/davet sayfasında"),read(mail));
             return lines[lines.length-1];
         }
     }

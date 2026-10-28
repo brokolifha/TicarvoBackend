@@ -15,7 +15,7 @@ class ConfigurationPropertiesTest {
   var loader=getClass().getClassLoader();
   assertNull(loader.getResource("application.yaml"));assertNull(loader.getResource("application-local.yaml"));
   Properties raw=new Properties();try(var input=loader.getResourceAsStream("application.properties")){assertNotNull(input);raw.load(input);}
-  assertEquals(33,raw.size());assertEquals("${COMMISSION_RATE:0}",raw.getProperty("ticarvo.commission.default-rate"));assertEquals("${SELLER_VERIFICATION_REQUIRED:true}",raw.getProperty("ticarvo.sellers.verification-required"),"production default: admin-verified sellers (ADR-011)");
+  assertEquals(34,raw.size());assertEquals("${PUBLIC_BASE_URL:http://localhost:5173}",raw.getProperty("ticarvo.public-base-url"));assertEquals("${COMMISSION_RATE:0}",raw.getProperty("ticarvo.commission.default-rate"));assertEquals("${SELLER_VERIFICATION_REQUIRED:true}",raw.getProperty("ticarvo.sellers.verification-required"),"production default: admin-verified sellers (ADR-011)");
   assertEquals("${DB_URL}",raw.getProperty("spring.datasource.url"));
   assertEquals("${DB_USERNAME}",raw.getProperty("spring.datasource.username"));
   assertEquals("${DB_PASSWORD}",raw.getProperty("spring.datasource.password"));

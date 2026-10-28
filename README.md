@@ -66,7 +66,7 @@ TEST_DB_URL, TEST_DB_USERNAME, TEST_DB_PASSWORD zorunludur; H2 veya sessiz skip 
 
 Tek adres (K-26): Nginx `/` yolunda frontend'i, `/api` yolunda backend'i sunar; CORS gerekmez. Örnek ayar `deploy/nginx/ticarvo.conf` dosyasındadır. Backend yalnız proxy'nin ulaşabildiği adreste dinlemelidir. Backend Docker'da, Nginx host'ta çalışıyorsa `TRUSTED_PROXIES` bridge geçidine ayarlanır (örneğin `172\.17\.0\.1`).
 
-Üretim ayarları (ADR-011): `SELLER_VERIFICATION_REQUIRED` varsayılan `true`, yani yeni firma platform admini onayından sonra satış yapar; local profilde `false`. `COMMISSION_RATE` varsayılan `0` (0–0,5 arası).
+Üretim ayarları (ADR-011): `SELLER_VERIFICATION_REQUIRED` varsayılan `true`, yani yeni firma platform admini onayından sonra satış yapar; local profilde `false`. `COMMISSION_RATE` varsayılan `0` (0–0,5 arası). `PUBLIC_BASE_URL` (ADR-012): e-postalardaki bağlantıların gittiği frontend adresi, örneğin `https://ticarvo.com`; varsayılanı `http://localhost:5173` olduğu için her kurulumda ayarlanmalı. E-postalar kodun girileceği sayfaya bağlantı verir, kodu bağlantıya koymaz.
 
 Backend Dockerfile çok aşamalı ve root olmayan Java25 runtime hedefler. İş akışı: test edilmiş imajı benzersiz tag/digest ile build→registry push→VPS pull. Ortak Compose koordinasyon outputs/deployment altındadır. Bu kaynak teslimi gerçek Docker runtime, TLS/tarayıcı cookie bütünleşmesi, image taraması, yedek geri yükleme veya canlı deploy kanıtı değildir. Genel yayın mimari/güvenlik blokajları kapatıldıktan sonra ayrı doğrulanır.
 

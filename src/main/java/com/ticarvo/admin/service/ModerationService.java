@@ -182,7 +182,7 @@ public class ModerationService {
         String subject = type == TargetType.USER ? "Ticarvo hesabınız askıya alındı" : "Ticarvo firmanız askıya alındı";
         String body = "Gerekçe: " + restriction.reason() + "\nAçıklama: " + restriction.statement()
             + "\n\nBu karara " + restriction.appealUntil() + " tarihine kadar bir kez itiraz edebilirsiniz."
-            + "\nİtiraz için POST /api/v1/moderation/appeals adresine bu kodu ve itiraz metninizi gönderin:\n" + code;
+            + "\nİtiraz için " + mail.page("/itiraz") + " sayfasında bu kodu ve itiraz metninizi girin:\n" + code;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() { recipients.forEach(to -> mail.send(to, subject, body)); }
         });
