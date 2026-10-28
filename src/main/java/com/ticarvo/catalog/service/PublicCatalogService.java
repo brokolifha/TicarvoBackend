@@ -38,6 +38,11 @@ public class PublicCatalogService {
         return ProductMapper.publicDto(p,companies.summary(p.seller()).name(),
             CatalogService.imageIds(images,List.of(p)).getOrDefault(p.id(),List.of()));
     }
+    /** Only for sellers selling to consumers: anyone else's identity stays as private as the directory setting makes it. */
+    public com.ticarvo.company.dto.SaleTerms terms(UUID seller) {
+        if(!products.sellsToConsumers(seller)) throw new com.ticarvo.shared.exception.ApiException(org.springframework.http.HttpStatus.NOT_FOUND,"SELLER_NOT_FOUND","Seller was not found.");
+        return companies.saleTerms(seller,false);
+    }
     public CatalogDtos.ImageContent image(UUID id,UUID imageId,Integer size) {
         products.publicDetail(id).orElseThrow(CatalogService::notFound);
         return CatalogService.content(images,store,id,imageId,size);

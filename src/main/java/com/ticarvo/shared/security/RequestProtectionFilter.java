@@ -37,7 +37,7 @@ public final class RequestProtectionFilter extends OncePerRequestFilter {
             // Images get their own, larger budget: one listing page loads up to 20 cover images (ADR-007).
             boolean image = servletPath.matches("/api/v1/catalog/products/[^/]+/images/[^/]+");
             boolean listing = servletPath.equals("/api/v1/catalog/products") || servletPath.equals("/api/v1/catalog/categories")
-                || servletPath.matches("/api/v1/catalog/products/[^/]+");
+                || servletPath.matches("/api/v1/catalog/products/[^/]+") || servletPath.matches("/api/v1/catalog/sellers/[^/]+/terms");
             if ((image && !publicCatalogLimiter.allow("PUBLIC_IMAGE:" + request.getRemoteAddr(), 600))
                     || (listing && !publicCatalogLimiter.allow("PUBLIC_CATALOG:" + request.getRemoteAddr(), 120))) {
                 response.setHeader("Retry-After", "900");

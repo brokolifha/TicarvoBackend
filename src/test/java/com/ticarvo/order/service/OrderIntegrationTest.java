@@ -217,6 +217,12 @@ class OrderIntegrationTest {
 
         // ADR-012: the buyer pays by transfer, so it sees the seller IBAN; the seller view does not repeat it.
         jdbc.update("UPDATE companies SET iban='TR330006100519786457841326' WHERE id=?",s.id().toString());
+        // ADR-012: an approved dealer reads the B2B rule, the IBAN and the tax details; anyone else gets 404.
+        var dealer=json.readTree(send(buyer,"GET","/api/v1/companies/"+b+"/catalog/sellers/"+s.id()+"/terms",null).body());
+        assertEquals("25.00",dealer.get("shippingFee").asString()); assertEquals("100.00",dealer.get("minimumOrder").asString());
+        assertEquals("TR330006100519786457841326",dealer.get("iban").asString());
+        var stranger=user(); UUID st=company(stranger);
+        assertEquals("404 PRODUCT_NOT_FOUND",outcome(send(stranger,"GET","/api/v1/companies/"+st+"/catalog/sellers/"+s.id()+"/terms",null)));
         var bought=json.readTree(send(buyer,"GET","/api/v1/companies/"+b+"/orders/"+small.get("id").asString(),null).body()).get("order");
         assertEquals("TR330006100519786457841326",bought.get("sellerIban").asString());
         assertTrue(json.readTree(send(s.user(),"GET","/api/v1/companies/"+s.id()+"/sales/"+small.get("id").asString(),null).body()).get("order").get("sellerIban").isNull());

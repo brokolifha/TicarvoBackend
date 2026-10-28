@@ -6084,6 +6084,94 @@
           }
         }
       }
+    },
+    "/catalog/sellers/{sellerId}/terms": {
+      "get": {
+        "summary": "Consumer terms of a seller",
+        "security": [],
+        "description": "ADR-012: anonymous; only for a seller with at least one public, published product with a retail price (else 404 SELLER_NOT_FOUND). B2C rule, no tax details or IBAN. Counts against the public catalog budget.",
+        "parameters": [
+          {
+            "name": "sellerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleTerms"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/companies/{buyerId}/catalog/sellers/{sellerId}/terms": {
+      "get": {
+        "summary": "Dealer terms of a seller",
+        "description": "ADR-012: buyer member with an APPROVED relationship (else 404 PRODUCT_NOT_FOUND, like the buyer catalog). B2B rule, tax details and IBAN.",
+        "parameters": [
+          {
+            "name": "buyerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sellerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleTerms"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8999,6 +9087,98 @@
           },
           "amount": {
             "type": "string"
+          }
+        }
+      },
+      "SaleTerms": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "ADR-012: who sells (pre-information) and the seller's rule for this channel, in TRY. taxId, taxOffice and iban only in the dealer view.",
+        "required": [
+          "sellerId",
+          "name",
+          "legalName",
+          "address",
+          "city",
+          "phone",
+          "taxId",
+          "taxOffice",
+          "iban",
+          "minimumOrder",
+          "shippingFee",
+          "freeShippingFrom"
+        ],
+        "properties": {
+          "sellerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "taxId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Dealer view only"
+          },
+          "taxOffice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Dealer view only"
+          },
+          "iban": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Dealer view only"
+          },
+          "minimumOrder": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Below it the order is refused (409 BELOW_MINIMUM_ORDER)"
+          },
+          "shippingFee": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "freeShippingFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }

@@ -73,6 +73,11 @@ public interface ProductRepository extends JpaRepository<Product,UUID> {
     Page<Product> publicList(@Param("seller") UUID seller,@Param("pattern") String pattern,
         @Param("anyCategory") boolean anyCategory,@Param("categories") Collection<UUID> categories,Pageable page);
 
+    // ADR-012: a seller's consumer terms are public once it sells something to consumers.
+    @Query("select count(p)>0 from Product p where p.sellerCompanyId=:seller and p.publicVisible=true"
+        + " and p.status=com.ticarvo.catalog.model.ProductStatus.PUBLISHED and p.retailAmount is not null" + ACTIVE_SELLER)
+    boolean sellsToConsumers(@Param("seller") UUID seller);
+
     @Query("select p from Product p where p.id=:id and p.publicVisible=true"
         + " and p.status=com.ticarvo.catalog.model.ProductStatus.PUBLISHED" + ACTIVE_SELLER)
     Optional<Product> publicDetail(@Param("id") UUID id);

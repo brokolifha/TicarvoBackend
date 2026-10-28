@@ -292,6 +292,11 @@ public class CatalogService {
         return new CatalogDtos.Page<>(result.map(p->new CatalogDtos.BuyerSearchItem(names.get(p.seller()).name(),
             ProductMapper.buyer(p,imageIds.getOrDefault(p.id(),List.of())))).getContent(),page,size,result.getTotalElements());
     }
+    /** ADR-012: the same gate as the buyer catalog; a buyer without an approved relationship gets the same 404. */
+    public com.ticarvo.company.dto.SaleTerms dealerTerms(UUID buyer,UUID seller,Authentication auth) {
+        authorizeBuyer(buyer,seller,auth);
+        return companies.saleTerms(seller,true);
+    }
     public CatalogDtos.Buyer buyerGet(UUID buyer,UUID seller,UUID id,Authentication auth) {
         authorizeBuyer(buyer,seller,auth);
         var p=products.buyerDetail(id,seller,buyer).orElseThrow(CatalogService::notFound);

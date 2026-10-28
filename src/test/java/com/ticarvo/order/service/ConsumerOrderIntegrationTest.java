@@ -50,6 +50,17 @@ class ConsumerOrderIntegrationTest {
         String discoveryOnly=product(seller,s,"RT-2","Tabak","20.00",null,true);
         String privateOne=product(seller,s,"RT-3","Gizli","10.00","30.00",false);
 
+        // ADR-012: who sells and the consumer shipping rule are public once the seller sells to consumers; no tax id or IBAN.
+        send(seller,"PUT","/api/v1/companies/"+s+"/shipping-terms","{\"b2bShippingFee\":\"99\",\"b2cShippingFee\":\"29.9\",\"b2cFreeShippingFrom\":\"500\"}");
+        var terms=request(null,"GET","/api/v1/catalog/sellers/"+s+"/terms",null,null);
+        assertEquals(200,terms.statusCode(),terms.body());
+        var t=json.readTree(terms.body());
+        assertEquals("29.90",t.get("shippingFee").asString()); assertEquals("500.00",t.get("freeShippingFrom").asString());
+        assertTrue(t.get("taxId").isNull()); assertTrue(t.get("iban").isNull());
+        var wholesaler=user(); UUID w=company(wholesaler); product(wholesaler,w,"WH-1","Toptan","10.00",null,true);
+        assertEquals("404 SELLER_NOT_FOUND",outcome(request(null,"GET","/api/v1/catalog/sellers/"+w+"/terms",null,null)),"no consumer sales, no public terms");
+        send(seller,"PUT","/api/v1/companies/"+s+"/shipping-terms","{}"); // the totals below assume no shipping rule
+
         var pub=json.readTree(request(null,"GET","/api/v1/catalog/products/"+retail,null,null).body());
         assertEquals("119.90",pub.get("retailPrice").get("amount").asString());
         assertTrue(pub.get("retailPrice").get("taxIncluded").asBoolean(),"consumer prices always include tax");

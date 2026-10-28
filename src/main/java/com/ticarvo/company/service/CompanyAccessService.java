@@ -99,6 +99,16 @@ public class CompanyAccessService implements CompanyAccess {
         return new CompanySummary(company.getId(), company.getName(), company.isPublicSeller() && company.isSellingEnabled(), company.isSuspended());
     }
     @Transactional(readOnly = true)
+    public com.ticarvo.company.dto.SaleTerms saleTerms(UUID sellerId, boolean dealer) {
+        var c = companies.findById(sellerId)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SELLER_NOT_FOUND", "Seller was not found."));
+        var t = terms(c);
+        return new com.ticarvo.company.dto.SaleTerms(c.getId(), c.getName(), c.billing()[0], c.billing()[3], c.getCity(), c.billing()[5],
+            dealer ? c.billing()[1] : null, dealer ? c.billing()[2] : null, dealer ? c.getIban() : null,
+            dealer ? t.b2bMinimumOrder() : t.b2cMinimumOrder(), dealer ? t.b2bShippingFee() : t.b2cShippingFee(),
+            dealer ? t.b2bFreeShippingFrom() : t.b2cFreeShippingFrom());
+    }
+    @Transactional(readOnly = true)
     public java.util.Map<UUID,String> ibans(java.util.Collection<UUID> companyIds) {
         java.util.Map<UUID,String> result = new java.util.HashMap<>();
         companies.findAllById(companyIds).forEach(c -> { if (c.getIban() != null) result.put(c.getId(), c.getIban()); });

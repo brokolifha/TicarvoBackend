@@ -19,7 +19,7 @@ class ArchitectureTest {
   // ADR-009 order module boundaries.
   "com.ticarvo.catalog.service.CatalogOrdering","com.ticarvo.catalog.dto.OrderableProduct",
   // ADR-011 shipping terms read by the order module.
-  "com.ticarvo.company.dto.ShippingTerms",
+  "com.ticarvo.company.dto.ShippingTerms","com.ticarvo.company.dto.SaleTerms",
   // ADR-011 company profile seen by the admin module.
   "com.ticarvo.company.dto.ProfileDtos$Profile","com.ticarvo.company.dto.ProfileDtos$Billing","com.ticarvo.company.model.SellerStatus");
  private static String module(String name){String[] parts=name.split("\\.");return parts.length>2?parts[2]:"";}
