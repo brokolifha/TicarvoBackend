@@ -38,13 +38,19 @@ public class CompanyProfileService {
     public ProfileDtos.Profile edit(UUID id, ProfileDtos.Edit request, Authentication auth) {
         var company = locked(id, auth);
         var b = request.billing();
-        String[] billing = Arrays.stream(new String[]{b.legalName(), b.taxId(), b.taxOffice(), b.address(), b.city(), b.phone()})
+        String[] billing = Arrays.stream(new String[]{b.legalName(), b.taxId(), b.taxOffice(), b.address(), b.city(), b.phone(),
+                b.iban() == null ? null : b.iban().replace(" ", "").toUpperCase(java.util.Locale.ROOT)})
             .map(CompanyProfileService::clean).toArray(String[]::new);
-        if (billingLocked(company.getSellerStatus()) && !Arrays.equals(billing, company.billing())) {
+        // A seller verified before the IBAN existed may add one once without a new review; changing it needs one.
+        boolean addsMissingIban = company.getIban() == null && Arrays.equals(Arrays.copyOf(billing, 6), Arrays.copyOf(company.billing(), 6));
+        if (billingLocked(company.getSellerStatus()) && !Arrays.equals(billing, company.billing()) && !addsMissingIban) {
             throw new ApiException(HttpStatus.CONFLICT, "BILLING_LOCKED", "Billing details cannot change while the seller application is pending or verified.");
         }
         if (billing[1] != null && !validTaxId(billing[1])) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "TAX_ID_INVALID", "The tax or identity number is not valid.");
+        }
+        if (billing[6] != null && !validIban(billing[6])) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "IBAN_INVALID", "The IBAN is not a valid Turkish IBAN.");
         }
         company.billing(billing);
         company.showcase(clean(request.description()), clean(request.website()));
@@ -114,8 +120,14 @@ public class CompanyProfileService {
     static String clean(String value) { return value == null || value.isBlank() ? null : value.strip(); }
     static ProfileDtos.Profile profile(Company c) {
         String[] b = c.billing();
-        return new ProfileDtos.Profile(c.getId(), c.getName(), new ProfileDtos.Billing(b[0], b[1], b[2], b[3], b[4], b[5]),
+        return new ProfileDtos.Profile(c.getId(), c.getName(), new ProfileDtos.Billing(b[0], b[1], b[2], b[3], b[4], b[5], b[6]),
             c.getDescription(), c.getWebsite(), c.getLogoKey() != null, c.getSellerStatus(), c.getSellerNote(), c.getSellerAppliedAt(), c.isSellingEnabled());
+    }
+    /** TR, two check digits and 22 digits; ISO 13616 mod 97 (letters count as 10..35, the first four characters move to the end). */
+    static boolean validIban(String iban) {
+        if (!iban.matches("TR[0-9]{24}")) return false;
+        String moved = iban.substring(4) + "2927" + iban.substring(2, 4);
+        return new java.math.BigInteger(moved).mod(java.math.BigInteger.valueOf(97)).intValue() == 1;
     }
     /** VKN (10 digits, companies) or TCKN (11 digits, sole traders), each with its official check digits. */
     static boolean validTaxId(String id) {

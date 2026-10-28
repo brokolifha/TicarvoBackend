@@ -99,6 +99,12 @@ public class CompanyAccessService implements CompanyAccess {
         return new CompanySummary(company.getId(), company.getName(), company.isPublicSeller() && company.isSellingEnabled(), company.isSuspended());
     }
     @Transactional(readOnly = true)
+    public java.util.Map<UUID,String> ibans(java.util.Collection<UUID> companyIds) {
+        java.util.Map<UUID,String> result = new java.util.HashMap<>();
+        companies.findAllById(companyIds).forEach(c -> { if (c.getIban() != null) result.put(c.getId(), c.getIban()); });
+        return result;
+    }
+    @Transactional(readOnly = true)
     public java.util.Map<UUID,CompanySummary> summaries(java.util.Collection<UUID> ids) {
         if(ids==null || ids.size()>MAX_SUMMARIES || ids.stream().anyMatch(java.util.Objects::isNull)) {
             throw new IllegalArgumentException("At most "+MAX_SUMMARIES+" company IDs.");

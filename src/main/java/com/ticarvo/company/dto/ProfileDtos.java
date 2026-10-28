@@ -13,7 +13,9 @@ public final class ProfileDtos {
     public record Billing(@Size(max = 200) String legalName,
         @Pattern(regexp = "[0-9]{10}|[1-9][0-9]{10}") String taxId,
         @Size(max = 100) String taxOffice, @Size(max = 500) String address, @Size(max = 60) String city,
-        @Pattern(regexp = "\\+?[0-9]{10,15}") String phone) {}
+        @Pattern(regexp = "\\+?[0-9]{10,15}") String phone,
+        /** A Turkish IBAN for bank transfers; spaces allowed, checked with its check digits (400 IBAN_INVALID). */
+        @Size(max = 40) String iban) {}
     /** Replaces the whole profile; a null field clears it. */
     public record Edit(@NotNull @Valid Billing billing, @Size(max = 2000) String description,
         @Size(max = 200) @Pattern(regexp = "https?://\\S+") String website) {}

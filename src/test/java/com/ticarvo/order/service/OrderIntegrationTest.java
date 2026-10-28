@@ -214,6 +214,12 @@ class OrderIntegrationTest {
         var sales=json.readTree(send(s.user(),"GET","/api/v1/companies/"+s.id()+"/sales",null).body()).get("content");
         assertEquals("37.50",byId(sales,large.get("id").asString()).get("commission").get("amount").asString());
         assertTrue(json.readTree(send(buyer,"GET","/api/v1/companies/"+b+"/orders/"+small.get("id").asString(),null).body()).get("order").get("commission").isNull());
+
+        // ADR-012: the buyer pays by transfer, so it sees the seller IBAN; the seller view does not repeat it.
+        jdbc.update("UPDATE companies SET iban='TR330006100519786457841326' WHERE id=?",s.id().toString());
+        var bought=json.readTree(send(buyer,"GET","/api/v1/companies/"+b+"/orders/"+small.get("id").asString(),null).body()).get("order");
+        assertEquals("TR330006100519786457841326",bought.get("sellerIban").asString());
+        assertTrue(json.readTree(send(s.user(),"GET","/api/v1/companies/"+s.id()+"/sales/"+small.get("id").asString(),null).body()).get("order").get("sellerIban").isNull());
     }
     static JsonNode byId(JsonNode orders,String id) {
         for(JsonNode o:orders) if(o.get("id").asString().equals(id)) return o;

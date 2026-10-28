@@ -6,7 +6,9 @@ import com.ticarvo.order.entity.OrderEvent;
 import com.ticarvo.order.entity.OrderLine;
 import com.ticarvo.identity.service.CurrentUserProvider;
 import com.ticarvo.order.entity.PurchaseOrder;
+import com.ticarvo.order.model.Channel;
 import com.ticarvo.order.model.OrderStatus;
+import com.ticarvo.order.model.PaymentMethod;
 import com.ticarvo.order.repository.OrderEventRepository;
 import com.ticarvo.order.repository.OrderLineRepository;
 import com.ticarvo.order.repository.PurchaseOrderRepository;
@@ -80,6 +82,7 @@ public class OrderQueries {
         var ids = new HashSet<UUID>();
         page.forEach(o -> { if (o.buyerCompanyId() != null) ids.add(o.buyerCompanyId()); ids.add(o.sellerCompanyId()); });
         var names = companies.summaries(ids);
+        var ibans = asSeller ? java.util.Map.<UUID,String>of() : companies.ibans(page.stream().map(PurchaseOrder::sellerCompanyId).collect(Collectors.toSet()));
         return page.stream().map(o -> {
             var a = o.shippingAddress();
             var address = a == null ? null : new OrderDtos.Address(a.recipient(), a.phone(), a.address(), a.district(), a.city(), a.postalCode());
@@ -87,7 +90,8 @@ public class OrderQueries {
             return new OrderDtos.Order(o.id(), o.checkoutId(), o.channel(), o.buyerCompanyId(), buyerName,
                 o.sellerCompanyId(), names.get(o.sellerCompanyId()).name(), o.status(), o.paymentStatus(), o.paymentMethod(), o.currency(),
                 money(o.subtotalAmount()), money(o.shippingAmount()), money(o.totalAmount()),
-                asSeller ? new OrderDtos.Commission(o.commissionRate().setScale(4).toPlainString(), money(o.commissionAmount())) : null, o.buyerNote(), address, o.carrier(), o.trackingNumber(), o.deliveredAt(), o.createdAt(), o.updatedAt(),
+                asSeller ? new OrderDtos.Commission(o.commissionRate().setScale(4).toPlainString(), money(o.commissionAmount())) : null,
+                o.channel() == Channel.B2B || o.paymentMethod() == PaymentMethod.BANK_TRANSFER ? ibans.get(o.sellerCompanyId()) : null, o.buyerNote(), address, o.carrier(), o.trackingNumber(), o.deliveredAt(), o.createdAt(), o.updatedAt(),
                 o.version(), byOrder.getOrDefault(o.id(), List.of()).stream().map(OrderQueries::line).toList());
         }).toList();
     }

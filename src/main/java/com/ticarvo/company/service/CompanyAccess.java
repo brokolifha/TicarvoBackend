@@ -16,4 +16,6 @@ public interface CompanyAccess {
  /** ADR-011: the seller's order rules; joins the caller's transaction. */
  com.ticarvo.company.dto.ShippingTerms shippingTerms(UUID companyId);
  java.util.Map<UUID,CompanySummary> summaries(java.util.Collection<UUID> ids);
+ /** Sellers' IBANs for buyers paying by transfer; companies without one are absent. */
+ java.util.Map<UUID,String> ibans(java.util.Collection<UUID> companyIds);
 }

@@ -194,14 +194,19 @@ class AdminIntegrationTest {
         assertEquals("404 SELLER_NOT_FOUND",outcome(request(null,"GET","/api/v1/sellers/"+s,null,null)));
         assertTrue(json.readTree(send(seller,"GET",c+"/seller-profile",null).body()).get("listed").asBoolean(),"the owner still sees the switch");
 
-        String billing="\"legalName\":\"Synthetic Ticaret A.S.\",\"taxId\":\"%s\",\"taxOffice\":\"Kadikoy\",\"address\":\"Synthetic street 1\",\"city\":\"Istanbul\",\"phone\":\"+905551112233\"";
+        String billing="\"legalName\":\"Synthetic Ticaret A.S.\",\"taxId\":\"%s\",\"taxOffice\":\"Kadikoy\",\"address\":\"Synthetic street 1\",\"city\":\"Istanbul\",\"phone\":\"+905551112233\",\"iban\":\"%s\"";
+        String iban="TR18 0006 2001 1900 0006 6723 15";
         String edit="{\"billing\":{"+billing+"},\"description\":\"%s\",\"website\":\"https://example.invalid\"}";
         assertEquals("409 PROFILE_INCOMPLETE",outcome(send(seller,"POST",c+"/seller-application",null)));
-        assertEquals("400 TAX_ID_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("1234567891","Wrong check digit"))));
-        assertEquals("400 REQUEST_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("12ab567890","Not digits"))));
-        assertEquals("400 TAX_ID_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000147","TCKN wrong check digit"))));
-        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("10000000146","Sole trader TCKN")).statusCode());
-        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("1234567890","Wholesale since 1990")).statusCode());
+        assertEquals("400 TAX_ID_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("1234567891",iban,"Wrong check digit"))));
+        assertEquals("400 REQUEST_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("12ab567890",iban,"Not digits"))));
+        assertEquals("400 TAX_ID_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000147",iban,"TCKN wrong check digit"))));
+        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("10000000146",iban,"Sole trader TCKN")).statusCode());
+        assertEquals("400 IBAN_INVALID",outcome(send(seller,"PUT",c+"/profile",edit.formatted("1234567890","TR19 0006 2001 1900 0006 6723 15","Wrong IBAN check digits"))));
+        // No IBAN: the profile saves, but the application is incomplete.
+        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("1234567890","","Wholesale since 1990")).statusCode());
+        assertEquals("409 PROFILE_INCOMPLETE",outcome(send(seller,"POST",c+"/seller-application",null)));
+        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("1234567890",iban,"Wholesale since 1990")).statusCode());
         var logo=upload(seller,c+"/logo",com.ticarvo.shared.storage.ImagesTest.encode("png",800,400));
         assertEquals(200,logo.statusCode(),logo.body());
         assertTrue(json.readTree(logo.body()).get("hasLogo").asBoolean());
@@ -210,8 +215,9 @@ class AdminIntegrationTest {
 
         assertEquals("PENDING",json.readTree(send(seller,"POST",c+"/seller-application",null).body()).get("sellerStatus").asString());
         assertEquals("409 SELLER_STATUS_CONFLICT",outcome(send(seller,"POST",c+"/seller-application",null)));
-        assertEquals("409 BILLING_LOCKED",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000146","Swap the tax id"))));
-        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("1234567890","The showcase stays editable")).statusCode());
+        assertEquals("409 BILLING_LOCKED",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000146",iban,"Swap the tax id"))));
+        assertEquals("409 BILLING_LOCKED",outcome(send(seller,"PUT",c+"/profile",edit.formatted("1234567890","TR33 0006 1005 1978 6457 8413 26","Swap the IBAN"))));
+        assertEquals(200,send(seller,"PUT",c+"/profile",edit.formatted("1234567890",iban,"The showcase stays editable")).statusCode());
         String decision="/api/v1/admin/companies/"+s+"/seller-decision";
         assertEquals("403 PLATFORM_ADMIN_REQUIRED",outcome(send(seller,"POST",decision,"{\"outcome\":\"VERIFIED\"}")));
 
@@ -234,7 +240,7 @@ class AdminIntegrationTest {
         assertTrue(publicSeller.get("verified").asBoolean() && publicSeller.get("hasLogo").asBoolean());
         assertEquals("Istanbul",publicSeller.get("city").asString());
         assertEquals(200,request(null,"GET","/api/v1/sellers/"+s+"/logo",null,null).statusCode());
-        assertEquals("409 BILLING_LOCKED",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000146","Still locked"))));
+        assertEquals("409 BILLING_LOCKED",outcome(send(seller,"PUT",c+"/profile",edit.formatted("10000000146",iban,"Still locked"))));
 
         // Revoking a verification stops the selling again.
         assertEquals("REJECTED",json.readTree(send(admin,"POST",decision,"{\"outcome\":\"REJECTED\",\"note\":\"Verification revoked.\"}").body()).get("sellerStatus").asString());

@@ -39,6 +39,7 @@ public class Company {
     @Column(length = 500) private String address;
     @Column(length = 60) private String city;
     @Column(length = 20) private String phone;
+    @Column(length = 26) private String iban;
     @Column(length = 2000) private String description;
     @Column(length = 200) private String website;
     @Column(name = "logo_key", length = 120) private String logoKey;
@@ -48,8 +49,9 @@ public class Company {
     @Column(name = "seller_applied_at") private Instant sellerAppliedAt;
     @Column(name = "selling_enabled", nullable = false) private boolean sellingEnabled;
     /** Order: legal name, tax id, tax office, address, city, phone. */
-    public String[] billing() { return new String[]{legalName, taxId, taxOffice, address, city, phone}; }
-    public void billing(String[] b) { legalName = b[0]; taxId = b[1]; taxOffice = b[2]; address = b[3]; city = b[4]; phone = b[5]; }
+    public String[] billing() { return new String[]{legalName, taxId, taxOffice, address, city, phone, iban}; }
+    public void billing(String[] b) { legalName = b[0]; taxId = b[1]; taxOffice = b[2]; address = b[3]; city = b[4]; phone = b[5]; iban = b[6]; }
+    public String getIban() { return iban; }
     public void showcase(String description, String website) { this.description = description; this.website = website; }
     public String getDescription() { return description; }
     public String getWebsite() { return website; }

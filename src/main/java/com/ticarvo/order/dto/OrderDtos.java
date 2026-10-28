@@ -37,7 +37,9 @@ public final class OrderDtos {
     /** B2C orders have no buyer company; buyerName is then the recipient. paymentMethod and shippingAddress are B2C only. */
     public record Order(UUID id, UUID checkoutId, Channel channel, UUID buyerCompanyId, String buyerName, UUID sellerCompanyId, String sellerName,
         OrderStatus status, PaymentStatus paymentStatus, PaymentMethod paymentMethod, String currency, String subtotalAmount, String shippingAmount,
-        String totalAmount, Commission commission, String buyerNote,
+        String totalAmount, Commission commission,
+        /** The seller's IBAN in the buyer's views of orders paid by transfer (every B2B order, B2C BANK_TRANSFER); otherwise null. */
+        String sellerIban, String buyerNote,
         Address shippingAddress, String carrier, String trackingNumber, Instant deliveredAt, Instant createdAt, Instant updatedAt, long version,
         List<Line> lines) {}
     /** ADR-011: only in the seller's view; null for buyers and consumers. */

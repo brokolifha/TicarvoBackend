@@ -8190,6 +8190,13 @@
               }
             ],
             "description": "Only in the seller's views (/sales); null for buyers and consumers."
+          },
+          "sellerIban": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ADR-012: the seller's IBAN in the buyer's and consumer's views of orders paid by transfer (every B2B order, B2C BANK_TRANSFER); null in the seller's view and for cash on delivery."
           }
         },
         "required": [
@@ -8216,7 +8223,8 @@
           "deliveredAt",
           "subtotalAmount",
           "shippingAmount",
-          "commission"
+          "commission",
+          "sellerIban"
         ]
       },
       "OrderEvent": {
@@ -8803,7 +8811,7 @@
       "Billing": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Every field is needed to apply; locked (409 BILLING_LOCKED) while PENDING or VERIFIED. taxId is a VKN (10 digits) or TCKN (11 digits) with valid check digits (400 TAX_ID_INVALID).",
+        "description": "Every field, the IBAN included, is needed to apply; locked (409 BILLING_LOCKED) while PENDING or VERIFIED. taxId is a VKN (10 digits) or TCKN (11 digits) with valid check digits (400 TAX_ID_INVALID).",
         "properties": {
           "legalName": {
             "type": [
@@ -8846,6 +8854,14 @@
               "null"
             ],
             "pattern": "^\\+?[0-9]{10,15}$"
+          },
+          "iban": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40,
+            "description": "ADR-012: Turkish IBAN (TR + 24 digits; spaces allowed), check digits verified (400 IBAN_INVALID). Required to apply; locked with the rest while PENDING or VERIFIED, except that a seller verified without one may add it once."
           }
         }
       },
