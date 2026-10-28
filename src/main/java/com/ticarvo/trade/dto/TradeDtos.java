@@ -18,7 +18,8 @@ public final class TradeDtos {
         @Override public String toString() { return "Invitation[REDACTED]"; }
     }
     public record Seller(UUID id,String name) {}
-    public record Relationship(UUID id,UUID buyerCompanyId,UUID sellerCompanyId,
+    /** Both company names, so each side can tell who the other is without a second lookup. */
+    public record Relationship(UUID id,UUID buyerCompanyId,String buyerName,UUID sellerCompanyId,String sellerName,
             TradeStatus status,long version,Instant createdAt,Instant updatedAt) {}
     public record RelationshipPage(List<Relationship> content,int page,int size,long totalElements) {}
     public enum Direction { INCOMING, OUTGOING }

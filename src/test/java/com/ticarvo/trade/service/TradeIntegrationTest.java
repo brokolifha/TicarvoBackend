@@ -69,6 +69,7 @@ class TradeIntegrationTest {
         var auth=new UsernamePasswordAuthenticationToken(user.email(),"",List.of());
         return new Actor(user.id(),user.email(),auth,companies.create("Company "+UUID.randomUUID(),auth).id());
     }
+    String companyName(Actor actor) { return companyAccess.summary(actor.company()).name(); }
     TradeDtos.Relationship apply(Actor buyer,Actor seller) {
         return trade.apply(buyer.company(),new TradeDtos.Apply(seller.company(),null),buyer.auth());
     }
@@ -95,6 +96,9 @@ class TradeIntegrationTest {
         assertEquals(0,trade.list(c.company(),TradeDtos.Direction.INCOMING,null,0,20,c.auth()).totalElements());
         var approved=trade.decide(b.company(),pending.id(),pending.version(),TradeStatus.APPROVED,b.auth());
         assertEquals(1,approved.version()); assertTrue(trade.hasApprovedRelationship(a.company(),b.company()));
+        var listed=trade.list(b.company(),TradeDtos.Direction.INCOMING,null,0,20,b.auth()).content().get(0);
+        assertEquals(companyName(a),listed.buyerName()); assertEquals(companyName(b),listed.sellerName());
+        assertEquals(companyName(a),trade.get(a.company(),pending.id(),a.auth()).buyerName());
         assertFalse(trade.hasApprovedRelationship(b.company(),a.company()));
         sellers.update(b.company(),false,b.auth());
         assertTrue(trade.hasApprovedRelationship(a.company(),b.company()));

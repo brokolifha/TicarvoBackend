@@ -6320,7 +6320,9 @@
         "required": [
           "id",
           "buyerCompanyId",
+          "buyerName",
           "sellerCompanyId",
+          "sellerName",
           "status",
           "version",
           "createdAt",
@@ -6335,9 +6337,15 @@
             "type": "string",
             "format": "uuid"
           },
+          "buyerName": {
+            "type": "string"
+          },
           "sellerCompanyId": {
             "type": "string",
             "format": "uuid"
+          },
+          "sellerName": {
+            "type": "string"
           },
           "status": {
             "type": "string",

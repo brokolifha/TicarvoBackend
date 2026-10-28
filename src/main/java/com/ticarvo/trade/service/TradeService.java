@@ -70,11 +70,11 @@ public class TradeService implements TradeAccess {
             closed.reapply(actor,now);
             relationships.flush();
             events.saveAndFlush(new TradeEvent(closed,actor,buyerId,previous,"REAPPLIED",now));
-            return TradeMapper.toResponse(closed);
+            return response(closed);
         }
         var relationship=relationships.saveAndFlush(new TradeRelationship(buyerId,sellerId,actor,now));
         events.saveAndFlush(new TradeEvent(relationship,actor,buyerId,null,"APPLIED",now));
-        return TradeMapper.toResponse(relationship);
+        return response(relationship);
     }
     @Transactional(readOnly=true)
     public TradeDtos.RelationshipPage list(UUID companyId,TradeDtos.Direction direction,TradeStatus status,int page,int size,Authentication auth) {
@@ -84,12 +84,17 @@ public class TradeService implements TradeAccess {
         var pageable=PageRequest.of(page,size,Sort.by("createdAt").descending().and(Sort.by("id")));
         var result=direction==TradeDtos.Direction.OUTGOING ?
             relationships.outgoing(companyId,status,pageable) : relationships.incoming(companyId,status,pageable);
-        return new TradeDtos.RelationshipPage(result.stream().map(TradeMapper::toResponse).toList(),page,size,result.getTotalElements());
+        // One name lookup for the whole page.
+        var names=companies.summaries(result.stream().flatMap(r->java.util.stream.Stream.of(r.buyerId(),r.sellerId())).collect(java.util.stream.Collectors.toSet()));
+        return new TradeDtos.RelationshipPage(result.stream().map(r->TradeMapper.toResponse(r,names)).toList(),page,size,result.getTotalElements());
+    }
+    private TradeDtos.Relationship response(TradeRelationship relationship) {
+        return TradeMapper.toResponse(relationship,companies.summaries(java.util.List.of(relationship.buyerId(),relationship.sellerId())));
     }
     @Transactional(readOnly=true)
     public TradeDtos.Relationship get(UUID companyId,UUID relationshipId,Authentication auth) {
         companies.requireMember(companyId,auth);
-        return TradeMapper.toResponse(relationships.findVisible(relationshipId,companyId).orElseThrow(TradeService::notFound));
+        return response(relationships.findVisible(relationshipId,companyId).orElseThrow(TradeService::notFound));
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public TradeDtos.Relationship decide(UUID companyId,UUID relationshipId,long expectedVersion,TradeStatus target,Authentication auth) {
@@ -112,7 +117,7 @@ public class TradeService implements TradeAccess {
         relationship.transition(target,actor,now);
         relationships.flush();
         events.saveAndFlush(new TradeEvent(relationship,actor,companyId,previous,target.name(),now));
-        return TradeMapper.toResponse(relationship);
+        return response(relationship);
     }
     /** Internal predicate only; future catalog entry points must separately authorize the buyer principal. */
     @Transactional(readOnly=true)
