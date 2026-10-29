@@ -15,7 +15,7 @@ class ConfigurationPropertiesTest {
   var loader=getClass().getClassLoader();
   assertNull(loader.getResource("application.yaml"));assertNull(loader.getResource("application-local.yaml"));
   Properties raw=new Properties();try(var input=loader.getResourceAsStream("application.properties")){assertNotNull(input);raw.load(input);}
-  assertEquals(35,raw.size());assertEquals("%5p [%X{requestId:-}]",raw.getProperty("logging.pattern.level"));assertEquals("${PUBLIC_BASE_URL:http://localhost:5173}",raw.getProperty("ticarvo.public-base-url"));assertEquals("${COMMISSION_RATE:0}",raw.getProperty("ticarvo.commission.default-rate"));assertEquals("${SELLER_VERIFICATION_REQUIRED:true}",raw.getProperty("ticarvo.sellers.verification-required"),"production default: admin-verified sellers (ADR-011)");
+  assertEquals(42,raw.size());assertEquals("%5p [%X{requestId:-}]",raw.getProperty("logging.pattern.level"));assertEquals("${PUBLIC_BASE_URL:http://localhost:5173}",raw.getProperty("ticarvo.public-base-url"));assertEquals("${COMMISSION_RATE:0}",raw.getProperty("ticarvo.commission.default-rate"));assertEquals("${SELLER_VERIFICATION_REQUIRED:true}",raw.getProperty("ticarvo.sellers.verification-required"),"production default: admin-verified sellers (ADR-011)");
   assertEquals("${DB_URL}",raw.getProperty("spring.datasource.url"));
   assertEquals("${DB_USERNAME}",raw.getProperty("spring.datasource.username"));
   assertEquals("${DB_PASSWORD}",raw.getProperty("spring.datasource.password"));
@@ -34,6 +34,7 @@ class ConfigurationPropertiesTest {
     "server.error.include-message=never","server.error.include-stacktrace=never","server.error.include-binding-errors=never",
     "server.tomcat.max-http-form-post-size=16KB","management.endpoints.web.exposure.include=health",
     "management.endpoint.health.show-details=never","management.endpoint.health.show-components=never",
+    "spring.mail.properties.mail.smtp.starttls.required=true","spring.mail.properties.mail.smtp.timeout=10000",
     "spring.servlet.multipart.max-file-size=5MB","spring.servlet.multipart.max-request-size=6MB"};
    for(String entry:expected){String[] pair=entry.split("=",2);assertEquals(pair[1],env.getProperty(pair[0]),pair[0]);}
    assertTrue(Binder.get(env).bind("server.servlet.session.cookie.secure",Boolean.class).orElseThrow(IllegalStateException::new));

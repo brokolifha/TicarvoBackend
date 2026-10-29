@@ -108,7 +108,9 @@ Kayıttan sonra hesaba bir doğrulama kodu gönderilir. Login, e-posta doğrulan
 - Aynı hesap için 60 saniyede en fazla bir posta gönderilir; yeni kod eskisini geçersiz kılar.
 - IP başına 15 dakikalık kotalar: yeniden gönderme 5, sıfırlama isteği 5, doğrulama ve sıfırlama onayı 20.
 
-**Posta (K-19):** Her e-posta, `ticarvo.mail.outbox-dir` klasörüne bir `.txt` dosyası olarak yazılır. Local profilde bu klasör `MAIL_OUTBOX_DIR` ortam değişkeninden alınır; tanımlı değilse `target/mail-outbox` kullanılır. **Klasör tanımlı değilse uygulama açılmaz.** Bu bir geliştirme aracıdır; VPS'e çıkmadan önce gerçek bir posta sağlayıcısı seçilmelidir (yayın blokajı REL-M4-MAIL). Ayrıntılar: ADR-004.
+**Posta (K-19):** Her e-posta, `ticarvo.mail.outbox-dir` klasörüne bir `.txt` dosyası olarak yazılır. Local profilde bu klasör `MAIL_OUTBOX_DIR` ortam değişkeninden alınır; tanımlı değilse `target/mail-outbox` kullanılır. Bu bir geliştirme aracıdır. Ayrıntılar: ADR-004.
+
+**SMTP (ADR-015, REL-M4-MAIL):** Klasör tanımlı değilse posta SMTP ile gider. Ayarlar `SPRING_MAIL_HOST`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` ve gönderen adres `MAIL_FROM`; port 587, STARTTLS zorunlu, zaman aşımları 10 saniye. Her posta önce `mail_queue` tablosuna kendi işlemiyle yazılır. 15 saniyede bir çalışan görev sırası gelenleri gönderir ve gönderileni siler. Hata olursa 1, 2, 4 ... 256 dakika bekleyip yeniden dener; 10. hatadan sonra siler ve loga yalnız kayıt numarasını yazar. Kod tek backend örneği varsayar. **Ne klasör ne SMTP tanımlıysa uygulama açılmaz.**
 
 ## M4.2 iki adımlı giriş (TOTP)
 
