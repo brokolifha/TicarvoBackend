@@ -17,6 +17,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.*;
@@ -81,8 +83,12 @@ public class MemberService {
         String token = SecureTokens.generate();
         var invitation = invitations.saveAndFlush(new MemberInvitation(companyId, email, request.role(),
             SecureTokens.sha256Hex(token), actor, now, now.plus(INVITATION_TTL)));
-        mail.send(email, "Ticarvo firma daveti", company.getName() + " firmasına " + request.role()
-            + " olarak davet edildiniz. Ticarvo hesabınızla giriş yapıp " + mail.page("/panel/davet") + " sayfasında bu kodu girin (7 gün geçerli):\n" + token);
+        // A-07: only once the invitation is committed, so a rolled-back invite never mails a dead code.
+        String body = company.getName() + " firmasına " + request.role()
+            + " olarak davet edildiniz. Ticarvo hesabınızla giriş yapıp " + mail.page("/panel/davet") + " sayfasında bu kodu girin (7 gün geçerli):\n" + token;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() { mail.send(email, "Ticarvo firma daveti", body); }
+        });
         return invitation(invitation);
     }
     @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)

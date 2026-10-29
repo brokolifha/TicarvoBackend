@@ -60,9 +60,9 @@ public class AccountService {
         if (!user.isEmailVerified()) { sendVerification(user); return; }
         // At most one notice per account per window, so the sign-up form cannot flood a mailbox.
         if (!registrationNotices.allow(user.getId().toString(), 1)) return;
-        mail.send(user.getEmail(), "Ticarvo kayıt denemesi",
+        afterCommit(() -> mail.send(user.getEmail(), "Ticarvo kayıt denemesi",
             "Bu e-posta adresiyle yeni bir Ticarvo hesabı açılmak istendi. Hesabınız zaten var: giriş yapabilir ya da "
-            + "parolanızı sıfırlayabilirsiniz. Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz.");
+            + "parolanızı sıfırlayabilirsiniz. Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz."));
     }
     @Transactional
     public void verifyEmail(String token) {
@@ -97,7 +97,7 @@ public class AccountService {
         user.changePassword(passwords.encode(newPassword));
         tokens.deleteAll(user.getId(), Purpose.PASSWORD_RESET);
         afterCommit(() -> sessions.findByPrincipalName(email).keySet().stream().filter(id -> !id.equals(keepSessionId)).forEach(sessions::deleteById));
-        mail.send(email, "Ticarvo parolanız değişti", "Hesabınızın parolası değiştirildi. Bunu siz yapmadıysanız hemen parolanızı sıfırlayın.");
+        afterCommit(() -> mail.send(email, "Ticarvo parolanız değişti", "Hesabınızın parolası değiştirildi. Bunu siz yapmadıysanız hemen parolanızı sıfırlayın."));
     }
     /** Always 202: an address already in use is told to its owner, not to the requester. */
     @Transactional
@@ -108,15 +108,15 @@ public class AccountService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "The new address is the current one.");
         }
         if (users.existsByEmail(target)) {
-            mail.send(target, "Ticarvo e-posta değişikliği", "Bir Ticarvo hesabı e-posta adresini bu adrese taşımak istedi; adres zaten kullanıldığı için işlem yapılmadı.");
+            afterCommit(() -> mail.send(target, "Ticarvo e-posta değişikliği", "Bir Ticarvo hesabı e-posta adresini bu adrese taşımak istedi; adres zaten kullanıldığı için işlem yapılmadı."));
             return;
         }
         var now = clock.instant();
         tokens.deleteAll(user.getId(), Purpose.EMAIL_CHANGE);
         String token = SecureTokens.generate();
         tokens.saveAndFlush(AccountToken.emailChange(user.getId(), target, SecureTokens.sha256Hex(token), now, now.plus(EMAIL_CHANGE_TTL)));
-        mail.send(email, "Ticarvo e-posta değişikliği isteği", "Hesabınızın e-posta adresini değiştirme isteği alındı. Bunu siz yapmadıysanız parolanızı değiştirin.");
-        mail.send(target, "Ticarvo yeni e-posta adresinizi doğrulayın", "Yeni adresinizi onaylamak için " + mail.page("/panel/hesap") + " sayfasında bu kodu girin (1 saat geçerli):\n" + token);
+        afterCommit(() -> mail.send(email, "Ticarvo e-posta değişikliği isteği", "Hesabınızın e-posta adresini değiştirme isteği alındı. Bunu siz yapmadıysanız parolanızı değiştirin."));
+        afterCommit(() -> mail.send(target, "Ticarvo yeni e-posta adresinizi doğrulayın", "Yeni adresinizi onaylamak için " + mail.page("/panel/hesap") + " sayfasında bu kodu girin (1 saat geçerli):\n" + token));
     }
     /** Needs the signed-in account that asked; afterwards every session ends and the new address is the login. */
     @Transactional
@@ -130,7 +130,7 @@ public class AccountService {
         user.changeEmail(stored.getNewEmail(), clock.instant());
         // Sessions are indexed by the old address, which no longer logs in.
         afterCommit(() -> revokeAllSessions(email));
-        mail.send(email, "Ticarvo e-posta adresiniz değişti", "Hesabınızın e-posta adresi değiştirildi. Bunu siz yapmadıysanız destekle iletişime geçin.");
+        afterCommit(() -> mail.send(email, "Ticarvo e-posta adresiniz değişti", "Hesabınızın e-posta adresi değiştirildi. Bunu siz yapmadıysanız destekle iletişime geçin."));
     }
     /**
      * ADR-013 (KVKK art. 7): the account is anonymized, its tokens removed and every session ended. Orders, their
@@ -143,7 +143,7 @@ public class AccountService {
         tokens.deleteAllOf(user.getId());
         user.anonymize(passwords.encode(SecureTokens.generate()), clock.instant());
         afterCommit(() -> revokeAllSessions(email));
-        mail.send(email, "Ticarvo hesabınız silindi", "Hesabınız ve kişisel bilgileriniz silindi. Yasal saklama süresi olan sipariş kayıtları bu süre boyunca tutulur. Bunu siz yapmadıysanız destekle iletişime geçin.");
+        afterCommit(() -> mail.send(email, "Ticarvo hesabınız silindi", "Hesabınız ve kişisel bilgileriniz silindi. Yasal saklama süresi olan sipariş kayıtları bu süre boyunca tutulur. Bunu siz yapmadıysanız destekle iletişime geçin."));
     }
     /** Daily retention: expired verification, reset and e-mail change codes are of no use to anyone. */
     @org.springframework.scheduling.annotation.Scheduled(cron = "${ticarvo.retention.cron:0 30 3 * * *}")
@@ -176,7 +176,7 @@ public class AccountService {
         tokens.deleteAll(user.getId(), purpose);
         String token = SecureTokens.generate();
         tokens.saveAndFlush(new AccountToken(user.getId(), purpose, SecureTokens.sha256Hex(token), now, now.plus(ttl)));
-        mail.send(user.getEmail(), subject, text + token);
+        afterCommit(() -> mail.send(user.getEmail(), subject, text + token));
     }
     private AccountToken consume(String token, Purpose purpose) {
         var stored = tokens.findForUpdate(SecureTokens.sha256Hex(token), purpose)
