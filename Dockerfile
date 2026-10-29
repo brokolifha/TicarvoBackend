@@ -8,6 +8,8 @@ RUN mvn -B -q -DskipTests package
 FROM eclipse-temurin:25.0.4.1_1-jre-noble
 RUN groupadd --gid 10001 ticarvo && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin ticarvo
 WORKDIR /app
+# REL-M4-IMAGES: the images volume mounts here; a new named volume takes this owner, so the app can write to it.
+RUN mkdir -p /var/lib/ticarvo/images && chown 10001:10001 /var/lib/ticarvo/images
 COPY --from=build --chown=10001:10001 /build/target/ticarvo-backend-*.jar /app/ticarvo-backend.jar
 USER 10001:10001
 EXPOSE 8080
