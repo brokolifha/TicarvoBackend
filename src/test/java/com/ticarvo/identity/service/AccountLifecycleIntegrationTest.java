@@ -39,6 +39,7 @@ class AccountLifecycleIntegrationTest {
     }
     @Autowired JdbcTemplate jdbc;
     @Autowired IdentityService identity;
+    @Autowired AccountService accounts;
     @Autowired ObjectMapper json;
     @Value("${local.server.port}") int port;
 
@@ -140,6 +141,37 @@ class AccountLifecycleIntegrationTest {
         assertTrue(read(mails(newEmail).getLast()).contains("zaten kullanıldığı"),"its owner is told instead");
     }
 
+    /** ADR-013 (KVKK art. 7): the account is anonymized; an owner with colleagues hands over first; expired codes are purged. */
+    @Test void accountDeletion() throws Exception {
+        HttpClient owner=client(), colleague=client();
+        String email=directUser(), other=directUser();
+        assertEquals("204",login(owner,email,PASSWORD)); assertEquals("204",login(colleague,other,PASSWORD));
+        String shared=json.readTree(request(owner,"POST","/api/v1/companies","{\"name\":\"Shared Co\"}",csrf(owner),"application/json").body()).get("id").asString();
+        jdbc.update("INSERT INTO company_memberships(id,company_id,user_id,role,created_at) SELECT UUID(),?,id,'MEMBER',UTC_TIMESTAMP(6) FROM app_users WHERE email=?",shared,other);
+        String body="{\"currentPassword\":\""+PASSWORD+"\"}";
+        assertEquals("403 CURRENT_PASSWORD_INVALID",post(owner,"/api/v1/auth/me/deletion","{\"currentPassword\":\"wrong-password-123\"}"));
+        assertEquals("409 OWNER_MUST_TRANSFER",post(owner,"/api/v1/auth/me/deletion",body),"a company with members needs a new owner first");
+
+        jdbc.update("DELETE FROM company_memberships WHERE company_id=? AND role='MEMBER'",shared);
+        jdbc.update("UPDATE companies SET public_seller=TRUE WHERE id=?",shared);
+        String userId=jdbc.queryForObject("SELECT id FROM app_users WHERE email=?",String.class,email);
+        assertEquals("204",post(owner,"/api/v1/auth/me/deletion",body));
+        assertEquals(401,get(owner,"/api/v1/auth/me").statusCode(),"the session ends");
+        assertEquals("401 INVALID_CREDENTIALS",login(client(),email,PASSWORD));
+        var row=jdbc.queryForMap("SELECT email,display_name,deleted_at FROM app_users WHERE id=?",userId);
+        assertNotNull(row.get("deleted_at")); assertEquals("deleted-"+userId+"@deleted.invalid",row.get("email")); assertEquals("Silinmiş hesap",row.get("display_name"));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM app_users WHERE email=?",Integer.class,email),"the address is gone");
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM company_memberships WHERE company_id=?",Integer.class,shared));
+        assertEquals(Boolean.FALSE,jdbc.queryForObject("SELECT public_seller AND selling_enabled FROM companies WHERE id=?",Boolean.class,shared),
+            "the sole owner's company leaves the directory and stops selling");
+        assertTrue(read(mails(email).getLast()).contains("Hesabınız ve kişisel bilgileriniz silindi"),"the old address is told");
+
+        // Retention: an expired code is removed by the daily job.
+        jdbc.update("UPDATE account_tokens SET expires_at=UTC_TIMESTAMP(6) - INTERVAL 1 DAY");
+        assertTrue(accounts.removeExpiredTokens()>=0);
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM account_tokens WHERE expires_at<UTC_TIMESTAMP(6)",Integer.class));
+    }
+
     /** A-04: sign-up answers the same for new and existing addresses; only the address owner hears about the attempt. */
     @Test void signUpDoesNotRevealExistingAccounts() throws Exception {
         var client=client();
@@ -205,6 +237,8 @@ class AccountLifecycleIntegrationTest {
             .method(method,body==null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
         if(type!=null) builder.header("Content-Type",type);
         if(csrf!=null) builder.header("X-CSRF-TOKEN",csrf);
+        // Each client is its own address behind the trusted local proxy (SEC-M1-002), so per-address limits count people.
+        builder.header("X-Forwarded-For","198.18."+((client.hashCode()>>>8)&255)+"."+(1+(client.hashCode()&127)));
         return client.send(builder.build(),HttpResponse.BodyHandlers.ofString());
     }
     HttpClient client() { return HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build(); }

@@ -13,6 +13,9 @@ public final class AccountRequests {
     public record EmailAddress(@NotBlank @Email @Size(max = 254) String email) {}
     // C-03 account settings. Every change of credentials asks for the current password.
     public record Profile(@NotBlank @Size(max = 100) String displayName) {}
+    public record Deletion(@NotBlank @Size(max = 72) String currentPassword) {
+        @Override public String toString() { return "Deletion[REDACTED]"; }
+    }
     public record PasswordChange(@NotBlank @Size(max = 72) String currentPassword, @NotBlank @Size(min = 12, max = 72) String newPassword) {
         @Override public String toString() { return "PasswordChange[REDACTED]"; }
     }

@@ -6243,6 +6243,47 @@
           }
         }
       }
+    },
+    "/auth/me/deletion": {
+      "post": {
+        "summary": "Delete the signed-in account",
+        "description": "ADR-013 (KVKK art. 7): needs the current password (403 CURRENT_PASSWORD_INVALID, 5 tries per 15 minutes). The account is anonymized in place (address, name, password, MFA), its codes removed and every session, this one included, ended; the old address is told. Orders with their addresses and the audit trail stay for the legal retention period. 409 OWNER_MUST_TRANSFER while the user owns a company with other members; a sole owner company leaves the directory and stops selling. 409 ADMIN_MUST_BE_REVOKED for a platform admin.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "currentPassword"
+                ],
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "maxLength": 72
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

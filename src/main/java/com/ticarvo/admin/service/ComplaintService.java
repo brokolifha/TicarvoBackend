@@ -86,6 +86,10 @@ public class ComplaintService {
         afterCommit(() -> mail.send(email, "Ticarvo bildiriminizi onaylayın",
             "Bildiriminizi göndermek için " + mail.page("/bildirim-onayla") + " sayfasında bu kodu girin (24 saat geçerli). Siz göndermediyseniz yok sayın:\n" + token));
     }
+    /** Daily retention: unconfirmed notices are dropped once their code expires. */
+    @org.springframework.scheduling.annotation.Scheduled(cron = "${ticarvo.retention.cron:0 30 3 * * *}")
+    @Transactional
+    public int removeExpiredNotices() { return notices.deleteExpired(clock.instant()); }
     /** The confirmed notice becomes a complaint in the admin queue; the sender gets a receipt (DSA Art. 16(4)). */
     @Transactional
     public AdminDtos.MyComplaint confirmNotice(String token) {

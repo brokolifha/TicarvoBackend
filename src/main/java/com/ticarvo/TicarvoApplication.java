@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 public class TicarvoApplication {
     public static void main(String[] args) {
         // Admin grant/revoke (ADR-008) runs once, then exits. port -1 keeps the web context (Spring Session needs it)

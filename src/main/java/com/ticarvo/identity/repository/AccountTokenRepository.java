@@ -15,4 +15,8 @@ public interface AccountTokenRepository extends JpaRepository<AccountToken, UUID
     @Modifying
     @Query("delete from AccountToken t where t.userId = :user and t.purpose = :purpose")
     void deleteAll(@Param("user") UUID user, @Param("purpose") AccountToken.Purpose purpose);
+    @Modifying @Query("delete from AccountToken t where t.userId = :user")
+    void deleteAllOf(@Param("user") UUID user);
+    @Modifying @Query("delete from AccountToken t where t.expiresAt < :now")
+    int deleteExpired(@Param("now") Instant now);
 }

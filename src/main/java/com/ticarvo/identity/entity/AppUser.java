@@ -28,6 +28,7 @@ public class AppUser {
     private Long mfaLastStep;
     @Column(name = "suspended_at")
     private Instant suspendedAt;
+    @Column(name = "deleted_at") private Instant deletedAt;
     protected AppUser() {}
     public AppUser(String email, String passwordHash, String displayName) {
         this.id = UUID.randomUUID(); this.email = email; this.passwordHash = passwordHash;
@@ -39,6 +40,15 @@ public class AppUser {
     public String getDisplayName() { return displayName; }
     public Instant getCreatedAt() { return createdAt; }
     public boolean isSuspended() { return suspendedAt != null; }
+    /**
+     * ADR-013 (KVKK art. 7): identifying data goes; the row stays because orders and audit entries point at it. The
+     * address cannot sign in again: nobody knows it or the random password.
+     */
+    public void anonymize(String unusablePasswordHash, Instant now) {
+        email = "deleted-" + id + "@deleted.invalid"; displayName = "Silinmiş hesap"; passwordHash = unusablePasswordHash;
+        mfaSecret = null; mfaEnabled = false; mfaLastStep = null; deletedAt = now;
+    }
+    public boolean isDeleted() { return deletedAt != null; }
     public void suspend(Instant now) { suspendedAt = now; }
     public void restore() { suspendedAt = null; }
     public boolean isEmailVerified() { return emailVerifiedAt != null; }

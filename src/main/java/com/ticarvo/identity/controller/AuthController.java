@@ -35,6 +35,11 @@ public class AuthController {
     public UserResponse rename(@Valid @RequestBody AccountRequests.Profile request, Authentication authentication) {
         return identity.rename(authentication, request.displayName());
     }
+    /** ADR-013: deletes (anonymizes) the signed-in account; every session, this one included, ends. */
+    @PostMapping("/me/deletion") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@Valid @RequestBody AccountRequests.Deletion request, Authentication authentication) {
+        accounts.deleteAccount(authentication.getName(), request.currentPassword());
+    }
     @PostMapping("/password") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@Valid @RequestBody AccountRequests.PasswordChange request, Authentication authentication, HttpServletRequest http) {
         var session = http.getSession(false);

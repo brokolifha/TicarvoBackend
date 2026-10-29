@@ -31,10 +31,12 @@ public class AccountService {
     private final PasswordEncoder passwords;
     private final FindByIndexNameSessionRepository<? extends Session> sessions;
     private final Clock clock;
+    // Looked up when an account is deleted: the guards depend on services that depend on this one.
+    private final org.springframework.beans.factory.ObjectProvider<AccountDeletionGuard> deletionGuards;
     public AccountService(UserRepository users, AccountTokenRepository tokens, MailOutbox mail, PasswordEncoder passwords,
-            FindByIndexNameSessionRepository<? extends Session> sessions, Clock clock) {
+            FindByIndexNameSessionRepository<? extends Session> sessions, Clock clock, org.springframework.beans.factory.ObjectProvider<AccountDeletionGuard> deletionGuards) {
         this.users = users; this.tokens = tokens; this.mail = mail; this.passwords = passwords;
-        this.sessions = sessions; this.clock = clock;
+        this.sessions = sessions; this.clock = clock; this.deletionGuards = deletionGuards;
         this.registrationNotices = new BoundedRateLimiter(clock, Duration.ofMinutes(15), 10000);
         this.passwordChecks = new BoundedRateLimiter(clock, Duration.ofMinutes(15), 10000);
     }
@@ -130,6 +132,23 @@ public class AccountService {
         afterCommit(() -> revokeAllSessions(email));
         mail.send(email, "Ticarvo e-posta adresiniz değişti", "Hesabınızın e-posta adresi değiştirildi. Bunu siz yapmadıysanız destekle iletişime geçin.");
     }
+    /**
+     * ADR-013 (KVKK art. 7): the account is anonymized, its tokens removed and every session ended. Orders, their
+     * addresses and the audit trail stay for the legal retention period; the other modules may refuse first.
+     */
+    @Transactional
+    public void deleteAccount(String email, String currentPassword) {
+        var user = withCurrentPassword(email, currentPassword);
+        deletionGuards.orderedStream().forEach(guard -> guard.beforeDeletion(user.getId()));
+        tokens.deleteAllOf(user.getId());
+        user.anonymize(passwords.encode(SecureTokens.generate()), clock.instant());
+        afterCommit(() -> revokeAllSessions(email));
+        mail.send(email, "Ticarvo hesabınız silindi", "Hesabınız ve kişisel bilgileriniz silindi. Yasal saklama süresi olan sipariş kayıtları bu süre boyunca tutulur. Bunu siz yapmadıysanız destekle iletişime geçin.");
+    }
+    /** Daily retention: expired verification, reset and e-mail change codes are of no use to anyone. */
+    @org.springframework.scheduling.annotation.Scheduled(cron = "${ticarvo.retention.cron:0 30 3 * * *}")
+    @Transactional
+    public int removeExpiredTokens() { return tokens.deleteExpired(clock.instant()); }
     private AppUser withCurrentPassword(String email, String currentPassword) {
         var user = users.lockByEmail(email).orElseThrow(() ->
             new ApiException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "Authentication is required."));

@@ -13,7 +13,7 @@ class ArchitectureTest {
   "com.ticarvo.company.service.CompanyAccess","com.ticarvo.company.dto.CompanySummary","com.ticarvo.trade.service.TradeAccess",
   "com.ticarvo.identity.service.UserDirectory","com.ticarvo.identity.dto.UserSummary",
   // ADR-008 admin module boundaries.
-  "com.ticarvo.identity.service.AccountModeration","com.ticarvo.identity.dto.AccountView","com.ticarvo.company.service.CompanyModeration",
+  "com.ticarvo.identity.service.AccountModeration","com.ticarvo.identity.service.AccountDeletionGuard","com.ticarvo.identity.dto.AccountView","com.ticarvo.company.service.CompanyModeration",
   "com.ticarvo.company.dto.CompanyAdminViews","com.ticarvo.company.dto.CompanyAdminViews$Company","com.ticarvo.company.dto.CompanyAdminViews$Membership",
   "com.ticarvo.catalog.service.CatalogLookup",
   // ADR-009 order module boundaries.
