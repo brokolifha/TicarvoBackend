@@ -1,4 +1,5 @@
 package com.ticarvo.company.service;
+import com.ticarvo.testsupport.TestHttp;
 import com.ticarvo.identity.dto.RegisterRequest;
 import com.ticarvo.identity.service.IdentityService;
 import org.junit.jupiter.api.Test;
@@ -169,11 +170,7 @@ class MemberIntegrationTest {
             return lines[lines.length-1];
         }
     }
-    String outcome(HttpResponse<String> response) {
-        if(response.body()==null || response.body().isBlank()) return Integer.toString(response.statusCode());
-        var code=json.readTree(response.body()).get("code");
-        return code==null ? Integer.toString(response.statusCode()) : response.statusCode()+" "+code.asString();
-    }
+    String outcome(HttpResponse<String> response) { return TestHttp.outcome(json,response); }
     HttpResponse<String> get(User user,String path) throws Exception { return request(user,"GET",path,null,null); }
     HttpResponse<String> send(User user,String method,String path,String body) throws Exception {
         return request(user,method,path,body==null?"":body,body==null?null:"application/json");
@@ -186,15 +183,7 @@ class MemberIntegrationTest {
         if(csrf!=null) builder.header("X-CSRF-TOKEN",csrf);
         return user.http().send(builder.build(),HttpResponse.BodyHandlers.ofString());
     }
-    static String read(Path file) {
-        try { return Files.readString(file,StandardCharsets.UTF_8); } catch(IOException failure) { throw new IllegalStateException(failure); }
-    }
-    static Path tempDirectory() {
-        try { return Files.createTempDirectory("ticarvo-member-outbox"); } catch(IOException failure) { throw new IllegalStateException(failure); }
-    }
-    static String required(String key) {
-        String value=System.getenv(key);
-        if(value==null || value.isBlank()) throw new IllegalStateException(key+" required for real MySQL");
-        return value;
-    }
+    static String read(Path file) { return TestHttp.read(file); }
+    static Path tempDirectory() { return TestHttp.tempDirectory("ticarvo-member-outbox"); }
+    static String required(String key) { return TestHttp.required(key); }
 }

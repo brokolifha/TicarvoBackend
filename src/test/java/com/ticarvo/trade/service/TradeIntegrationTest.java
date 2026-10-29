@@ -1,4 +1,5 @@
 package com.ticarvo.trade.service;
+import com.ticarvo.testsupport.TestHttp;
 import com.ticarvo.company.entity.Company;
 import com.ticarvo.company.service.CompanyAccessService;
 import com.ticarvo.company.service.CompanyService;
@@ -43,11 +44,7 @@ class TradeIntegrationTest {
         registry.add("spring.datasource.username",()->required("TEST_DB_USERNAME"));
         registry.add("spring.datasource.password",()->required("TEST_DB_PASSWORD"));
     }
-    static String required(String key) {
-        String value=System.getenv(key);
-        if(value==null || value.isBlank()) throw new IllegalStateException(key+" required; real MySQL tests never skip.");
-        return value;
-    }
+    static String required(String key) { return TestHttp.required(key); }
     @Autowired IdentityService identity;
     @Autowired CompanyService companies;
     @Autowired CompanyAccessService companyAccess;

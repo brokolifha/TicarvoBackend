@@ -1,4 +1,5 @@
 package com.ticarvo.admin.service;
+import com.ticarvo.testsupport.TestHttp;
 import com.ticarvo.identity.dto.RegisterRequest;
 import com.ticarvo.identity.service.IdentityService;
 import com.ticarvo.identity.service.MfaIntegrationTest;
@@ -316,7 +317,7 @@ class AdminIntegrationTest {
         assertEquals(204,loginResponse(client,created.email(),PASSWORD,null).statusCode());
         return new User(created.id(),created.email(),client);
     }
-    HttpClient client() { return HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build(); }
+    HttpClient client() { return TestHttp.client(); }
     HttpResponse<String> loginResponse(HttpClient client,String email,String password,String code) throws Exception {
         String form="email="+URLEncoder.encode(email,StandardCharsets.UTF_8)+"&password="+URLEncoder.encode(password,StandardCharsets.UTF_8)
             +(code==null?"":"&code="+URLEncoder.encode(code,StandardCharsets.UTF_8));
@@ -336,12 +337,8 @@ class AdminIntegrationTest {
         }
     }
     static String lastLine(String mail) { var lines=mail.strip().split("\n"); return lines[lines.length-1]; }
-    static String read(Path file) { try { return Files.readString(file); } catch(IOException failure) { throw new IllegalStateException(failure); } }
-    String outcome(HttpResponse<String> response) {
-        if(response.body()==null || response.body().isBlank()) return Integer.toString(response.statusCode());
-        var code=json.readTree(response.body()).get("code");
-        return code==null ? Integer.toString(response.statusCode()) : response.statusCode()+" "+code.asString();
-    }
+    static String read(Path file) { return TestHttp.read(file); }
+    String outcome(HttpResponse<String> response) { return TestHttp.outcome(json,response); }
     HttpResponse<String> send(User user,String method,String path,String body) throws Exception { return request(user,method,path,body,"application/json"); }
     String csrf(User user) throws Exception { return json.readTree(request(user,"GET","/api/v1/auth/csrf",null,null).body()).get("token").asString(); }
     HttpResponse<String> request(User user,String method,String path,String body,String type) throws Exception { return request(user,method,path,body,type,true); }
@@ -355,12 +352,6 @@ class AdminIntegrationTest {
         if(withCsrf && !method.equals("GET")) builder.header("X-CSRF-TOKEN",csrf(user==null?new User(null,null,client):user));
         return client.send(builder.build(),HttpResponse.BodyHandlers.ofString());
     }
-    static Path tempDirectory(String prefix) {
-        try { return Files.createTempDirectory(prefix); } catch(IOException failure) { throw new IllegalStateException(failure); }
-    }
-    static String required(String key) {
-        String value=System.getenv(key);
-        if(value==null || value.isBlank()) throw new IllegalStateException(key+" required for real MySQL");
-        return value;
-    }
+    static Path tempDirectory(String prefix) { return TestHttp.tempDirectory(prefix); }
+    static String required(String key) { return TestHttp.required(key); }
 }

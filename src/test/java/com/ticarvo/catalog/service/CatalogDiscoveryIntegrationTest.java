@@ -1,4 +1,5 @@
 package com.ticarvo.catalog.service;
+import com.ticarvo.testsupport.TestHttp;
 import com.ticarvo.identity.dto.RegisterRequest;
 import com.ticarvo.identity.service.IdentityService;
 import org.junit.jupiter.api.Test;
@@ -310,11 +311,7 @@ class CatalogDiscoveryIntegrationTest {
         var client=user==null?HttpClient.newHttpClient():user.http();
         return client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path)).GET().build(),HttpResponse.BodyHandlers.ofByteArray());
     }
-    String outcome(HttpResponse<String> response) {
-        if(response.body()==null || response.body().isBlank()) return Integer.toString(response.statusCode());
-        var code=json.readTree(response.body()).get("code");
-        return code==null ? Integer.toString(response.statusCode()) : response.statusCode()+" "+code.asString();
-    }
+    String outcome(HttpResponse<String> response) { return TestHttp.outcome(json,response); }
     HttpResponse<String> send(User user,String method,String path,String body) throws Exception { return request(user,method,path,body,"application/json"); }
     String csrf(User user) throws Exception { return json.readTree(request(user,"GET","/api/v1/auth/csrf",null,null).body()).get("token").asString(); }
     HttpResponse<String> request(User user,String method,String path,String body,String type) throws Exception {
@@ -325,12 +322,6 @@ class CatalogDiscoveryIntegrationTest {
         if(user!=null && !method.equals("GET")) builder.header("X-CSRF-TOKEN",csrf(user));
         return client.send(builder.build(),HttpResponse.BodyHandlers.ofString());
     }
-    static Path tempDirectory(String prefix) {
-        try { return Files.createTempDirectory(prefix); } catch(IOException failure) { throw new IllegalStateException(failure); }
-    }
-    static String required(String key) {
-        String value=System.getenv(key);
-        if(value==null || value.isBlank()) throw new IllegalStateException(key+" required for real MySQL");
-        return value;
-    }
+    static Path tempDirectory(String prefix) { return TestHttp.tempDirectory(prefix); }
+    static String required(String key) { return TestHttp.required(key); }
 }

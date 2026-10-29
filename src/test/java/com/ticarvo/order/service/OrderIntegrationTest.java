@@ -1,4 +1,5 @@
 package com.ticarvo.order.service;
+import com.ticarvo.testsupport.TestHttp;
 import com.ticarvo.identity.dto.RegisterRequest;
 import com.ticarvo.identity.service.IdentityService;
 import org.junit.jupiter.api.Test;
@@ -328,11 +329,7 @@ class OrderIntegrationTest {
     UUID company(User owner) throws Exception {
         return UUID.fromString(json.readTree(send(owner,"POST","/api/v1/companies","{\"name\":\"M5 "+UUID.randomUUID()+"\"}").body()).get("id").asString());
     }
-    String outcome(HttpResponse<String> response) {
-        if(response.body()==null || response.body().isBlank()) return Integer.toString(response.statusCode());
-        var code=json.readTree(response.body()).get("code");
-        return code==null ? Integer.toString(response.statusCode()) : response.statusCode()+" "+code.asString();
-    }
+    String outcome(HttpResponse<String> response) { return TestHttp.outcome(json,response); }
     HttpResponse<String> send(User user,String method,String path,String body) throws Exception { return request(user,method,path,body,"application/json"); }
     String csrf(User user) throws Exception { return json.readTree(request(user,"GET","/api/v1/auth/csrf",null,null).body()).get("token").asString(); }
     HttpResponse<String> request(User user,String method,String path,String body,String type) throws Exception {
@@ -345,9 +342,5 @@ class OrderIntegrationTest {
     static String tempDirectory(String prefix) {
         try { return Files.createTempDirectory(prefix).toString(); } catch(IOException failure) { throw new IllegalStateException(failure); }
     }
-    static String required(String key) {
-        String value=System.getenv(key);
-        if(value==null || value.isBlank()) throw new IllegalStateException(key+" required for real MySQL");
-        return value;
-    }
+    static String required(String key) { return TestHttp.required(key); }
 }

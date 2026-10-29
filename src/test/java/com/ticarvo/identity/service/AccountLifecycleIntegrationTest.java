@@ -1,4 +1,5 @@
 package com.ticarvo.identity.service;
+import com.ticarvo.testsupport.TestHttp;
 import com.ticarvo.shared.security.SecureTokens;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -237,11 +238,7 @@ class AccountLifecycleIntegrationTest {
     String post(HttpClient client,String path,String body) throws Exception {
         return outcome(request(client,"POST",path,body,csrf(client),"application/json"));
     }
-    String outcome(HttpResponse<String> response) {
-        if(response.body()==null || response.body().isBlank()) return Integer.toString(response.statusCode());
-        var code=json.readTree(response.body()).get("code");
-        return code==null ? Integer.toString(response.statusCode()) : response.statusCode()+" "+code.asString();
-    }
+    String outcome(HttpResponse<String> response) { return TestHttp.outcome(json,response); }
     HttpResponse<String> get(HttpClient client,String path) throws Exception { return request(client,"GET",path,null,null,null); }
     String csrf(HttpClient client) throws Exception { return json.readTree(get(client,"/api/v1/auth/csrf").body()).get("token").asString(); }
     HttpResponse<String> request(HttpClient client,String method,String path,String body,String csrf,String type) throws Exception {
@@ -253,16 +250,8 @@ class AccountLifecycleIntegrationTest {
         builder.header("X-Forwarded-For","198.18."+((client.hashCode()>>>8)&255)+"."+(1+(client.hashCode()&127)));
         return client.send(builder.build(),HttpResponse.BodyHandlers.ofString());
     }
-    HttpClient client() { return HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build(); }
-    static String read(Path file) {
-        try { return Files.readString(file,StandardCharsets.UTF_8); } catch(IOException failure) { throw new IllegalStateException(failure); }
-    }
-    static Path tempDirectory() {
-        try { return Files.createTempDirectory("ticarvo-mail-outbox"); } catch(IOException failure) { throw new IllegalStateException(failure); }
-    }
-    static String required(String key) {
-        String value=System.getenv(key);
-        if(value==null || value.isBlank()) throw new IllegalStateException(key+" required for real MySQL");
-        return value;
-    }
+    HttpClient client() { return TestHttp.client(); }
+    static String read(Path file) { return TestHttp.read(file); }
+    static Path tempDirectory() { return TestHttp.tempDirectory("ticarvo-mail-outbox"); }
+    static String required(String key) { return TestHttp.required(key); }
 }
