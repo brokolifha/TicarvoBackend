@@ -204,6 +204,22 @@ class CatalogDiscoveryIntegrationTest {
 
     /** A-02: catalog reads share the seller lock, so a reader never waits for another reader. */
     /** SEC-M1-002: behind the trusted local proxy each client has its own public quota, not one shared by everyone. */
+    /** B-06: every answer carries a request id; a well-formed one from the proxy is kept, anything else is replaced. */
+    @Test void everyResponseCarriesARequestId() throws Exception {
+        var client=java.net.http.HttpClient.newHttpClient();
+        java.util.function.Function<String,String> id=inbound->{
+            try {
+                var builder=java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:"+port+"/api/v1/auth/csrf")).GET();
+                if(inbound!=null) builder.header("X-Request-Id",inbound);
+                return client.send(builder.build(),java.net.http.HttpResponse.BodyHandlers.discarding()).headers().firstValue("X-Request-Id").orElse(null);
+            } catch(Exception failure) { throw new IllegalStateException(failure); }
+        };
+        assertTrue(id.apply(null).matches("[0-9a-f-]{36}"),"generated when absent");
+        assertEquals("nginx-0123456789abcdef",id.apply("nginx-0123456789abcdef"),"the proxy id is kept");
+        String forged=id.apply("free text, not an id");
+        assertNotEquals("free text, not an id",forged); assertTrue(forged.matches("[0-9a-f-]{36}"),"free text is never logged");
+    }
+
     @Test void perAddressLimitsUseTheClientBehindTheTrustedProxy() throws Exception {
         var client=java.net.http.HttpClient.newHttpClient();
         java.util.function.Function<String,Integer> get=forwarded->{

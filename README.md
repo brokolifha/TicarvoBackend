@@ -68,6 +68,8 @@ Tek adres (K-26): Nginx `/` yolunda frontend'i, `/api` yolunda backend'i sunar; 
 
 Üretim ayarları (ADR-011): `SELLER_VERIFICATION_REQUIRED` varsayılan `true`, yani yeni firma platform admini onayından sonra satış yapar; local profilde `false`. `COMMISSION_RATE` varsayılan `0` (0–0,5 arası). `PUBLIC_BASE_URL` (ADR-012): e-postalardaki bağlantıların gittiği frontend adresi, örneğin `https://ticarvo.com`; varsayılanı `http://localhost:5173` olduğu için her kurulumda ayarlanmalı. E-postalar kodun girileceği sayfaya bağlantı verir, kodu bağlantıya koymaz.
 
+İzlenebilirlik (B-06): her yanıtta `X-Request-Id` başlığı var; aynı kimlik her log satırına yazılır. Nginx kendi `$request_id` değerini gönderir, böylece proxy logu ile uygulama logu eşleşir. Üretimde `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` ile loglar JSON (Elastic Common Schema) olarak yazılır; istek kimliği de alan olarak gelir. Metrikler (actuator) henüz açık değil; ayrı bir yönetim portu ve erişim kuralıyla açılacak.
+
 Backend Dockerfile çok aşamalı ve root olmayan Java25 runtime hedefler. İş akışı: test edilmiş imajı benzersiz tag/digest ile build→registry push→VPS pull. Ortak Compose koordinasyon outputs/deployment altındadır. Bu kaynak teslimi gerçek Docker runtime, TLS/tarayıcı cookie bütünleşmesi, image taraması, yedek geri yükleme veya canlı deploy kanıtı değildir. Genel yayın mimari/güvenlik blokajları kapatıldıktan sonra ayrı doğrulanır.
 
 ## Paket ve yapılandırma düzeni
