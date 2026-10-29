@@ -19,6 +19,10 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
         + " and (c.productId=:product or (:product is null and c.productId is null)) and c.status in :statuses")
     boolean existsSameTarget(@Param("reporter") UUID reporter, @Param("company") UUID company, @Param("product") UUID product,
         @Param("statuses") Collection<ComplaintStatus> statuses);
+    @Query("select count(c)>0 from Complaint c where c.reporterUserId is null and c.reporterEmail=:email and c.companyId=:company"
+        + " and (c.productId=:product or (:product is null and c.productId is null)) and c.status in :statuses")
+    boolean existsSameAnonymousTarget(@Param("email") String email, @Param("company") UUID company, @Param("product") UUID product,
+        @Param("statuses") Collection<ComplaintStatus> statuses);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Complaint c where c.id=:id")
     Optional<Complaint> lockById(@Param("id") UUID id);

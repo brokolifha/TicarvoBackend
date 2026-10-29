@@ -12,8 +12,13 @@ import java.util.UUID;
 public class Complaint {
     @Id @JdbcTypeCode(SqlTypes.CHAR) @Column(length = 36)
     private UUID id;
-    @JdbcTypeCode(SqlTypes.CHAR) @Column(name = "reporter_user_id", nullable = false, length = 36)
+    /** Null for an anonymous notice (ADR-013); the name and e-mail then identify the sender. */
+    @JdbcTypeCode(SqlTypes.CHAR) @Column(name = "reporter_user_id", length = 36)
     private UUID reporterUserId;
+    @Column(name = "reporter_name", length = 100)
+    private String reporterName;
+    @Column(name = "reporter_email", length = 254)
+    private String reporterEmail;
     @JdbcTypeCode(SqlTypes.CHAR) @Column(name = "company_id", nullable = false, length = 36)
     private UUID companyId;
     @JdbcTypeCode(SqlTypes.CHAR) @Column(name = "product_id", length = 36)
@@ -39,12 +44,19 @@ public class Complaint {
         this.id = UUID.randomUUID(); this.reporterUserId = reporterUserId; this.companyId = companyId; this.productId = productId;
         this.reason = reason; this.description = description; this.status = ComplaintStatus.OPEN; this.createdAt = now;
     }
+    public static Complaint anonymous(String name, String email, UUID companyId, UUID productId, PolicyReason reason, String description, Instant now) {
+        var c = new Complaint(null, companyId, productId, reason, description, now);
+        c.reporterName = name; c.reporterEmail = email;
+        return c;
+    }
     public void startReview(UUID admin) { status = ComplaintStatus.IN_REVIEW; reviewerUserId = admin; }
     public void resolve(UUID admin, ComplaintStatus outcome, String note, Instant now) {
         status = outcome; reviewerUserId = admin; adminNote = note; decidedAt = now;
     }
     public UUID id() { return id; }
     public UUID reporterUserId() { return reporterUserId; }
+    public String reporterName() { return reporterName; }
+    public String reporterEmail() { return reporterEmail; }
     public UUID companyId() { return companyId; }
     public UUID productId() { return productId; }
     public PolicyReason reason() { return reason; }

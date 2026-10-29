@@ -6172,6 +6172,77 @@
           }
         }
       }
+    },
+    "/notices": {
+      "post": {
+        "summary": "Send a notice without an account",
+        "security": [],
+        "description": "ADR-013: anonymous, CSRF required, 10 per 15 minutes per address. 404 when the company or product does not exist; otherwise always 202. A code is mailed (24 h) unless the address already has 3 notices in the last hour; nothing reaches the admin queue before confirmation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewNotice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notices/confirm": {
+      "post": {
+        "summary": "Confirm a notice with the mailed code",
+        "security": [],
+        "description": "ADR-013: turns the notice into an OPEN complaint and mails a receipt; the outcome is mailed when an admin decides (never the internal note). Wrong, used or expired code: 400 INVALID_TOKEN; an open notice from the same address about the same target: 409 COMPLAINT_DUPLICATE.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyComplaint"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7369,8 +7440,19 @@
             "format": "uuid"
           },
           "reporterUserId": {
-            "type": "string",
-            "format": "uuid"
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Null for an anonymous notice (ADR-013)"
+          },
+          "reporterName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Anonymous notices only"
           },
           "reporterEmail": {
             "type": "string"
@@ -7429,6 +7511,7 @@
         "required": [
           "id",
           "reporterUserId",
+          "reporterName",
           "reporterEmail",
           "companyId",
           "companyName",
@@ -9179,6 +9262,53 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "NewNotice": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "ADR-013 (DSA Art. 16): a notice from anyone, without an account. goodFaith is the required statement that the notice is accurate and complete.",
+        "required": [
+          "name",
+          "email",
+          "companyId",
+          "reason",
+          "description",
+          "goodFaith"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "companyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/PolicyReason"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 2000
+          },
+          "goodFaith": {
+            "type": "boolean",
+            "const": true
           }
         }
       }

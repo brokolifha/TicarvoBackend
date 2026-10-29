@@ -58,7 +58,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/api/v1/auth/csrf", "/api/v1/sellers", "/api/v1/sellers/{id}", "/api/v1/sellers/{id}/logo", "/api/v1/catalog/products", "/api/v1/catalog/products/{productId}",
                     "/api/v1/catalog/products/{productId}/images/{imageId}", "/api/v1/catalog/categories", "/api/v1/catalog/sellers/{sellerId}/terms").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/email-verification",
-                    "/api/v1/auth/email-verification/resend", "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset", "/api/v1/moderation/appeals").permitAll()
+                    "/api/v1/auth/email-verification/resend", "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset", "/api/v1/moderation/appeals",
+                    "/api/v1/notices", "/api/v1/notices/confirm").permitAll()
                 .requestMatchers("/api/v1/auth/me", "/api/v1/auth/password", "/api/v1/auth/email-change", "/api/v1/auth/email-change/confirm", "/api/v1/auth/sessions/revoke-all", "/api/v1/auth/mfa/*", "/api/v1/member-invitations/accept", "/api/v1/companies", "/api/v1/companies/**", "/api/v1/trade-invitations/resolve",
                     "/api/v1/complaints", "/api/v1/complaints/*", "/api/v1/admin/**", "/api/v1/me/**").authenticated()
                 .anyRequest().denyAll())

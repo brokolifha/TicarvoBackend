@@ -15,7 +15,8 @@ public final class RequestProtectionFilter extends OncePerRequestFilter {
     private static final java.util.Map<String, Integer> ANONYMOUS_POST_LIMITS = java.util.Map.of(
         "/api/v1/auth/login", 20, "/api/v1/auth/register", 10,
         "/api/v1/auth/email-verification/resend", 5, "/api/v1/auth/password-reset/request", 5,
-        "/api/v1/auth/email-verification", 20, "/api/v1/auth/password-reset", 20, "/api/v1/moderation/appeals", 10);
+        "/api/v1/auth/email-verification", 20, "/api/v1/auth/password-reset", 20, "/api/v1/moderation/appeals", 10,
+        "/api/v1/notices", 10, "/api/v1/notices/confirm", 20);
     private final ProblemWriter problems;
     private final BoundedRateLimiter authLimiter;
     // Separate key space: anonymous catalog reads must not exhaust the login/register capacity (SEC-M3-001).

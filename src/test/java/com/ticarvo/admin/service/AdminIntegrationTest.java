@@ -118,6 +118,40 @@ class AdminIntegrationTest {
         assertEquals("409 COMPLAINT_LIMIT_REACHED",outcome(send(stranger,"POST","/api/v1/complaints",complaint(s,null,"One more complaint over the limit."))));
     }
 
+    /** ADR-013 (DSA Art. 16): anyone reports without an account; the mailed code confirms it; the outcome goes by mail. */
+    @Test void anonymousNoticesAreConfirmedByMailAndAnsweredByMail() throws Exception {
+        var seller=user(); UUID s=company(seller);
+        String email="notice-"+UUID.randomUUID()+"@example.invalid";
+        String notice="{\"name\":\"Anonim Bildiren\",\"email\":\""+email+"\",\"companyId\":\""+s+"\",\"reason\":\"ILLEGAL_PRODUCT\","
+            +"\"description\":\"This seller lists products that are not legal to sell.\",\"goodFaith\":%s}";
+        assertEquals("400 REQUEST_INVALID",outcome(send(null,"POST","/api/v1/notices",notice.formatted("false"))),"the good-faith statement is required");
+        assertEquals("404 COMPANY_NOT_FOUND",outcome(send(null,"POST","/api/v1/notices",notice.formatted("true").replace(s.toString(),UUID.randomUUID().toString()))));
+        assertEquals(202,send(null,"POST","/api/v1/notices",notice.formatted("true")).statusCode());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM complaints WHERE reporter_email=?",Integer.class,email),"nothing reaches the queue unconfirmed");
+        String mail=latestMail(email);
+        assertTrue(mail.contains("/bildirim-onayla sayfasında"),mail);
+        String code=lastLine(mail);
+
+        var confirmed=send(null,"POST","/api/v1/notices/confirm","{\"token\":\""+code+"\"}");
+        assertEquals(201,confirmed.statusCode(),confirmed.body());
+        String id=json.readTree(confirmed.body()).get("id").asString();
+        assertTrue(latestMail(email).contains("Bildiriminiz alındı"),"a receipt (Art. 16(4))");
+        assertEquals("400 INVALID_TOKEN",outcome(send(null,"POST","/api/v1/notices/confirm","{\"token\":\""+code+"\"}")),"single use");
+
+        var admin=login(admin());
+        var queued=json.readTree(send(admin,"GET","/api/v1/admin/complaints/"+id,null).body());
+        assertTrue(queued.get("reporterUserId").isNull()); assertEquals("Anonim Bildiren",queued.get("reporterName").asString());
+        assertEquals(email,queued.get("reporterEmail").asString());
+        send(admin,"POST","/api/v1/admin/complaints/"+id+"/resolve","{\"expectedVersion\":0,\"outcome\":\"ACTION_TAKEN\",\"note\":\"Internal note never mailed\"}");
+        String outcomeMail=latestMail(email);
+        assertTrue(outcomeMail.contains("işlem yapıldı"),outcomeMail); assertFalse(outcomeMail.contains("Internal note"),"the internal note stays internal");
+
+        // Three notices an hour per address; more are accepted but send nothing.
+        for(int i=0;i<3;i++) assertEquals(202,send(null,"POST","/api/v1/notices",notice.formatted("true")).statusCode());
+        assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM pending_notices WHERE reporter_email=?",Integer.class,email));
+        assertEquals(202,send(null,"POST","/api/v1/notices",notice.formatted("true")).statusCode());
+        assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM pending_notices WHERE reporter_email=?",Integer.class,email));
+    }
     @Test void suspensionsHideAndBlockAndCanBeAppealed() throws Exception {
         var seller=user(); UUID s=company(seller); var buyer=user(); UUID b=company(buyer); var newcomer=user(); UUID n=company(newcomer);
         jdbc.update("UPDATE companies SET selling_enabled=TRUE WHERE id=?",s.toString()); // verified seller, as in production
@@ -316,6 +350,8 @@ class AdminIntegrationTest {
         var builder=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path))
             .method(method,body==null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
         if(type!=null) builder.header("Content-Type",type);
+        // Each client is its own address behind the trusted local proxy (SEC-M1-002), so per-address login limits count people.
+        builder.header("X-Forwarded-For","198.18."+((client.hashCode()>>>8)&255)+"."+(1+(client.hashCode()&127)));
         if(withCsrf && !method.equals("GET")) builder.header("X-CSRF-TOKEN",csrf(user==null?new User(null,null,client):user));
         return client.send(builder.build(),HttpResponse.BodyHandlers.ofString());
     }

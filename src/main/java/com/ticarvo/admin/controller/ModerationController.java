@@ -16,6 +16,11 @@ public class ModerationController {
     public ModerationController(ComplaintService complaints, ModerationService moderation) { this.complaints = complaints; this.moderation = moderation; }
     @PostMapping("/complaints") @ResponseStatus(HttpStatus.CREATED)
     public AdminDtos.MyComplaint create(@Valid @RequestBody AdminDtos.NewComplaint request, Authentication auth) { return complaints.create(request, auth); }
+    /** ADR-013: anonymous notices, confirmed by a mailed code. */
+    @PostMapping("/notices") @ResponseStatus(HttpStatus.ACCEPTED)
+    public void notice(@Valid @RequestBody AdminDtos.NewNotice request) { complaints.notice(request); }
+    @PostMapping("/notices/confirm") @ResponseStatus(HttpStatus.CREATED)
+    public AdminDtos.MyComplaint confirmNotice(@Valid @RequestBody AdminDtos.NoticeConfirm request) { return complaints.confirmNotice(request.token()); }
     @GetMapping("/complaints")
     public AdminDtos.Page<AdminDtos.MyComplaint> mine(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, Authentication auth) {
         return complaints.mine(page, size, auth);
