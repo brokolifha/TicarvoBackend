@@ -50,7 +50,8 @@ public class SecurityConfiguration {
         return provider;
     }
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemWriter problems,
-        @Qualifier("corsConfigurationSource") CorsConfigurationSource cors) throws Exception {
+        @Qualifier("corsConfigurationSource") CorsConfigurationSource cors, java.time.Clock clock) throws Exception {
+        var throttle = new LoginThrottle(clock, problems);
         http.cors(config -> config.configurationSource(cors))
             .csrf(Customizer.withDefaults())
             .requestCache(cache -> cache.disable())
@@ -79,12 +80,14 @@ public class SecurityConfiguration {
                     } else if (exception instanceof CredentialsExpiredException) {
                         problems.write(response, HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED", "Email address is not verified.");
                     } else {
+                        throttle.failed(request);
                         problems.write(response, HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Email or password is incorrect.");
                     }
                 }))
             .logout(logout -> logout.logoutUrl("/api/v1/auth/logout")
                 .logoutSuccessHandler((request, response, authentication) -> response.setStatus(HttpStatus.NO_CONTENT.value())))
-            .addFilterBefore(new RequestProtectionFilter(problems), UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(new RequestProtectionFilter(problems), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(throttle, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
     @Bean CorsConfigurationSource corsConfigurationSource(@Value("${ticarvo.cors.allowed-origins:}") String origins) {

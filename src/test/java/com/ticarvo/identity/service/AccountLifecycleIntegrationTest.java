@@ -141,6 +141,18 @@ class AccountLifecycleIntegrationTest {
         assertTrue(read(mails(newEmail).getLast()).contains("zaten kullanıldığı"),"its owner is told instead");
     }
 
+    /** A-05: ten wrong passwords for one address, from ten different addresses, stop that address for 15 minutes. */
+    @Test void wrongPasswordsAreCountedPerAccount() throws Exception {
+        String email=directUser(), bystander=directUser();
+        for(int i=0;i<10;i++) assertEquals("401 INVALID_CREDENTIALS",login(client(),email,"Wrong-Synthetic-Pass"+i));
+        assertEquals("429 RATE_LIMITED",login(client(),email,PASSWORD),"even the right password waits");
+        assertEquals("429 RATE_LIMITED",login(client(),email.toUpperCase(java.util.Locale.ROOT),PASSWORD),"the address is normalized");
+        assertEquals("204",login(client(),bystander,PASSWORD),"other accounts are not affected");
+        String unknown="nobody-"+UUID.randomUUID()+"@example.invalid";
+        for(int i=0;i<10;i++) login(client(),unknown,"Wrong-Synthetic-Pass"+i);
+        assertEquals("429 RATE_LIMITED",login(client(),unknown,PASSWORD),"unknown addresses behave the same, so no account oracle");
+    }
+
     /** ADR-013 (KVKK art. 7): the account is anonymized; an owner with colleagues hands over first; expired codes are purged. */
     @Test void accountDeletion() throws Exception {
         HttpClient owner=client(), colleague=client();

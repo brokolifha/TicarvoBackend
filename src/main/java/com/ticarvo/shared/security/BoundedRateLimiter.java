@@ -27,6 +27,11 @@ public final class BoundedRateLimiter {
         window.count++;
         return true;
     }
+    /** Whether the key already used its limit in the current window; counts nothing. */
+    public synchronized boolean exhausted(String key, int limit) {
+        Window window = windows.get(key);
+        return window != null && clock.millis() < window.expiresAt && window.count >= limit;
+    }
     private static final class Window {
         final long expiresAt;
         int count;
