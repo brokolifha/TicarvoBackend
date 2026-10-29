@@ -125,7 +125,15 @@ Kayıttan sonra hesaba bir doğrulama kodu gönderilir. Login, e-posta doğrulan
 - Parola sıfırlama MFA'yı kapatmaz.
 - `/auth/me` yanıtında `mfaEnabled` alanı var.
 
-**Anahtar:** Sır, AES-256-GCM ile şifrelenip saklanır. Anahtar `ticarvo.mfa.encryption-key` ayarından gelir (base64, 32 bayt); **anahtar yoksa veya geçersizse uygulama açılmaz.** Local profil, `MFA_ENCRYPTION_KEY` ortam değişkeni verilmemişse depodaki geliştirme anahtarını kullanır. Üretimde bu anahtar kullanılmaz; anahtar değişince mevcut sırlar okunamaz hale gelir (REL-M4-MFAKEY).
+**Anahtar:** Sır, AES-256-GCM ile şifrelenip saklanır. Anahtar `ticarvo.mfa.encryption-key` ayarından gelir (base64, 32 bayt); **anahtar yoksa veya geçersizse uygulama açılmaz.** Local profil, `MFA_ENCRYPTION_KEY` ortam değişkeni verilmemişse depodaki geliştirme anahtarını kullanır. Üretimde bu anahtar kullanılmaz.
+
+**Üretim anahtarı ve döndürme (REL-M4-MFAKEY):**
+- Anahtar `openssl rand -base64 32` ile üretilir ve depoya girmez. Docker secret olarak `/run/secrets/ticarvo.mfa.encryption-key` dosyasına konur; `SPRING_CONFIG_IMPORT=configtree:/run/secrets/` dosya adını ayar adı olarak okur. Ayrıca sunucu dışında güvenli bir yere (parola kasası) yedeklenir: anahtar kaybolursa iki adımlı girişi açık hesaplar ancak kurtarma koduyla girebilir.
+- Döndürme:
+  1. Yeni anahtarı `ticarvo.mfa.encryption-key`, eskisini `ticarvo.mfa.previous-keys` (virgülle ayrılmış liste) olarak verip yeniden başlatın. Eski anahtarla şifreli sırlar okunmaya devam eder; kullanıcı bir sonraki girişinde yeni anahtara taşınır.
+  2. Herkesi hemen taşımak için aynı ayarlarla bir kez `java -jar ticarvo-backend.jar --ticarvo.mfa.reseal=true` çalıştırın; kaç sırrın taşındığını loglar ve çıkar.
+  3. Ardından `ticarvo.mfa.previous-keys` ayarını kaldırıp yeniden başlatın.
+- Anahtar sızdıysa aynı adımlar hemen uygulanır.
 
 ## M4.3 firma rolleri ve ekip
 

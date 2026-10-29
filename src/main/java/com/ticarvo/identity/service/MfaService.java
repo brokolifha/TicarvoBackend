@@ -38,6 +38,8 @@ public class MfaService {
     private final AccountTokenRepository tokens;
     private final Clock clock;
     private final SecretKeySpec key;
+    /** REL-M4-MFAKEY: earlier keys still decrypt, so a new key can be rolled out without locking anyone out. */
+    private final List<SecretKeySpec> previousKeys;
     private final BoundedRateLimiter attempts;
     private final SecureRandom random = new SecureRandom();
     /** Login form `code`, carried as authentication details; transient so it never reaches the stored session. */
@@ -48,12 +50,11 @@ public class MfaService {
         @Override public String toString() { return "LoginCode[REDACTED]"; }
     }
     public MfaService(UserRepository users, AccountTokenRepository tokens, Clock clock,
-            @Value("${ticarvo.mfa.encryption-key:}") String encodedKey) {
-        byte[] raw;
-        try { raw = Base64.getDecoder().decode(encodedKey); } catch (IllegalArgumentException invalid) { raw = new byte[0]; }
-        if (raw.length != 32) throw new IllegalStateException("ticarvo.mfa.encryption-key must be a base64 encoded 32-byte key.");
+            @Value("${ticarvo.mfa.encryption-key:}") String encodedKey, @Value("${ticarvo.mfa.previous-keys:}") String previous) {
         this.users = users; this.tokens = tokens; this.clock = clock;
-        this.key = new SecretKeySpec(raw, "AES");
+        this.key = aesKey(encodedKey, "ticarvo.mfa.encryption-key");
+        this.previousKeys = Arrays.stream(previous.split(",")).map(String::strip).filter(k -> !k.isEmpty())
+            .map(k -> aesKey(k, "ticarvo.mfa.previous-keys")).toList();
         this.attempts = new BoundedRateLimiter(clock, Duration.ofMinutes(15), 10000);
     }
 
@@ -121,7 +122,10 @@ public class MfaService {
     }
     private boolean acceptTotp(AppUser user, String code) {
         if (code == null || !code.matches("[0-9]{6}")) return false;
-        byte[] secret = decrypt(user.getMfaSecret(), user.getId());
+        var opened = decrypt(user.getMfaSecret(), user.getId());
+        byte[] secret = opened.secret();
+        // Lazy rotation: a secret still sealed with an earlier key is resealed with the current one at the next use.
+        if (!opened.currentKey()) user.resealMfaSecret(encrypt(secret, user.getId()));
         long current = clock.millis() / 30_000;
         for (long step = current - 1; step <= current + 1; step++) {
             if (MessageDigest.isEqual(totp(secret, step).getBytes(StandardCharsets.US_ASCII), code.getBytes(StandardCharsets.US_ASCII))) {
@@ -169,26 +173,51 @@ public class MfaService {
         if (bits > 0) out.append(BASE32.charAt((buffer << (5 - bits)) & 31));
         return out.toString();
     }
-    private String encrypt(byte[] secret, UUID user) {
+    static SecretKeySpec aesKey(String encoded, String name) {
+        byte[] raw;
+        try { raw = Base64.getDecoder().decode(encoded); } catch (IllegalArgumentException invalid) { raw = new byte[0]; }
+        if (raw.length != 32) throw new IllegalStateException(name + " must be base64 encoded 32-byte keys.");
+        return new SecretKeySpec(raw, "AES");
+    }
+    record Opened(byte[] secret, boolean currentKey) {}
+    /** --ticarvo.mfa.reseal: reseals every stored secret with the current key, so an earlier key can be retired. */
+    @Transactional
+    public int resealAll() {
+        int changed = 0;
+        for (var user : users.findByMfaSecretIsNotNull()) {
+            var opened = decrypt(user.getMfaSecret(), user.getId());
+            if (!opened.currentKey()) { user.resealMfaSecret(encrypt(opened.secret(), user.getId())); changed++; }
+        }
+        return changed;
+    }
+    String encrypt(byte[] secret, UUID user) {
         try {
             byte[] iv = new byte[12];
             random.nextBytes(iv);
-            byte[] sealed = cipher(Cipher.ENCRYPT_MODE, iv, user).doFinal(secret);
+            byte[] sealed = cipher(Cipher.ENCRYPT_MODE, iv, user, key).doFinal(secret);
             return Base64.getEncoder().encodeToString(ByteBuffer.allocate(iv.length + sealed.length).put(iv).put(sealed).array());
         } catch (GeneralSecurityException failure) {
             throw new IllegalStateException(failure);
         }
     }
-    private byte[] decrypt(String stored, UUID user) {
-        try {
-            byte[] all = Base64.getDecoder().decode(stored);
-            return cipher(Cipher.DECRYPT_MODE, Arrays.copyOfRange(all, 0, 12), user).doFinal(all, 12, all.length - 12);
-        } catch (GeneralSecurityException failure) {
-            throw new IllegalStateException(failure);
+    /** Tries the current key, then the earlier ones; GCM authentication tells a wrong key apart. */
+    Opened decrypt(String stored, UUID user) {
+        byte[] all = Base64.getDecoder().decode(stored);
+        var keys = new java.util.ArrayList<SecretKeySpec>(previousKeys.size() + 1);
+        keys.add(key); keys.addAll(previousKeys);
+        for (int i = 0; i < keys.size(); i++) {
+            try {
+                return new Opened(cipher(Cipher.DECRYPT_MODE, Arrays.copyOfRange(all, 0, 12), user, keys.get(i)).doFinal(all, 12, all.length - 12), i == 0);
+            } catch (javax.crypto.AEADBadTagException wrongKey) {
+                // Next key.
+            } catch (GeneralSecurityException failure) {
+                throw new IllegalStateException(failure);
+            }
         }
+        throw new IllegalStateException("No configured MFA key opens this secret.");
     }
     // The user id is authenticated data, so a ciphertext copied to another account fails to decrypt.
-    private Cipher cipher(int mode, byte[] iv, UUID user) throws GeneralSecurityException {
+    private static Cipher cipher(int mode, byte[] iv, UUID user, SecretKeySpec key) throws GeneralSecurityException {
         var cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(mode, key, new GCMParameterSpec(128, iv));
         cipher.updateAAD(user.toString().getBytes(StandardCharsets.US_ASCII));

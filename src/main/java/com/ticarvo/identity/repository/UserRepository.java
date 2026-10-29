@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 public interface UserRepository extends JpaRepository<AppUser, UUID> {
     Optional<AppUser> findByEmail(String email);
+    java.util.List<AppUser> findByMfaSecretIsNotNull();
     boolean existsByEmail(String email);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from AppUser u where u.email = :email")

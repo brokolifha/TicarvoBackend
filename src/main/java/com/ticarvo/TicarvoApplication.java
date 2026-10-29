@@ -10,9 +10,9 @@ import java.util.stream.Stream;
 @org.springframework.scheduling.annotation.EnableScheduling
 public class TicarvoApplication {
     public static void main(String[] args) {
-        // Admin grant/revoke (ADR-008) runs once, then exits. port -1 keeps the web context (Spring Session needs it)
+        // Admin grant/revoke (ADR-008) and the MFA reseal (REL-M4-MFAKEY) run once, then exit. port -1 keeps the web context (Spring Session needs it)
         // without listening; a command-line argument outranks the PORT setting.
-        boolean adminCommand = Arrays.stream(args).anyMatch(arg -> arg.startsWith("--ticarvo.admin."));
+        boolean adminCommand = Arrays.stream(args).anyMatch(arg -> arg.startsWith("--ticarvo.admin.") || arg.startsWith("--ticarvo.mfa.reseal"));
         if (!adminCommand) { SpringApplication.run(TicarvoApplication.class, args); return; }
         var context = SpringApplication.run(TicarvoApplication.class, Stream.concat(Arrays.stream(args), Stream.of("--server.port=-1")).toArray(String[]::new));
         System.exit(SpringApplication.exit(context));

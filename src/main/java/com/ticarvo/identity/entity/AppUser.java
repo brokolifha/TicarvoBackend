@@ -61,6 +61,8 @@ public class AppUser {
     public String getMfaSecret() { return mfaSecret; }
     public void startMfaSetup(String encryptedSecret) { mfaSecret = encryptedSecret; mfaEnabled = false; mfaLastStep = null; }
     public void enableMfa() { mfaEnabled = true; }
+    /** The same secret sealed with the current key (REL-M4-MFAKEY); enabled state and last step stay. */
+    public void resealMfaSecret(String encryptedSecret) { mfaSecret = encryptedSecret; }
     public void disableMfa() { mfaSecret = null; mfaEnabled = false; mfaLastStep = null; }
     /** Accepts each TOTP time step at most once (replay protection). */
     public boolean acceptMfaStep(long step) {
