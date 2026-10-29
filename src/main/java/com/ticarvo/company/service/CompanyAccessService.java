@@ -109,6 +109,10 @@ public class CompanyAccessService implements CompanyAccess {
             dealer ? t.b2bFreeShippingFrom() : t.b2cFreeShippingFrom());
     }
     @Transactional(readOnly = true)
+    public java.util.List<UUID> memberIds(UUID companyId) {
+        return memberships.findByCompanyIdOrderByCreatedAtAscIdAsc(companyId).stream().map(m -> m.getUserId()).toList();
+    }
+    @Transactional(readOnly = true)
     public java.util.Map<UUID,String> ibans(java.util.Collection<UUID> companyIds) {
         java.util.Map<UUID,String> result = new java.util.HashMap<>();
         companies.findAllById(companyIds).forEach(c -> { if (c.getIban() != null) result.put(c.getId(), c.getIban()); });

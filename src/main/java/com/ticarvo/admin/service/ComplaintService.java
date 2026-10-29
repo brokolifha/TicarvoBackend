@@ -43,15 +43,16 @@ public class ComplaintService {
     private final PrincipalRateLimit limits;
     private final PendingNoticeRepository notices;
     private final MailOutbox mail;
+    private final com.ticarvo.notification.service.Notifications notifications;
     private final Clock clock;
     static final java.time.Duration NOTICE_TTL = java.time.Duration.ofHours(24);
     static final int NOTICES_PER_EMAIL_PER_HOUR = 3;
     public ComplaintService(ComplaintRepository complaints, CurrentUserProvider users, UserDirectory directory, CompanyModeration companyModeration,
             CompanyAccess companies, CatalogLookup catalog, AdminAccess admin, PrincipalRateLimit limits,
-            PendingNoticeRepository notices, MailOutbox mail, Clock clock) {
+            PendingNoticeRepository notices, MailOutbox mail, Clock clock, com.ticarvo.notification.service.Notifications notifications) {
         this.complaints = complaints; this.users = users; this.directory = directory; this.companyModeration = companyModeration;
         this.companies = companies; this.catalog = catalog; this.admin = admin; this.limits = limits;
-        this.notices = notices; this.mail = mail; this.clock = clock;
+        this.notices = notices; this.mail = mail; this.clock = clock; this.notifications = notifications;
     }
 
     // shortcut: the open-count and duplicate checks are not serialized per reporter; two parallel requests can both pass once.
@@ -165,6 +166,10 @@ public class ComplaintService {
         complaint.resolve(actor, request.outcome(), request.note().strip(), clock.instant());
         admin.record(actor, "COMPLAINT_" + request.outcome().name(), "COMPLAINT", id);
         // ADR-013: an anonymous sender has no account to look at, so the outcome goes by mail (DSA Art. 16(5)); never the internal note.
+        if (complaint.reporterUserId() != null) {
+            notifications.notify(List.of(complaint.reporterUserId()), null, request.outcome() == ComplaintStatus.ACTION_TAKEN
+                ? "Şikâyetiniz sonuçlandı: işlem yapıldı." : "Şikâyetiniz sonuçlandı: işlem gerekmedi.", "/panel/sikayetlerim");
+        }
         if (complaint.reporterUserId() == null) {
             String to = complaint.reporterEmail();
             String outcome = request.outcome() == ComplaintStatus.ACTION_TAKEN ? "bildirdiğiniz içerikle ilgili işlem yapıldı" : "incelemede işlem gerektiren bir durum bulunmadı";

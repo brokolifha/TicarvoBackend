@@ -6284,6 +6284,107 @@
           }
         }
       }
+    },
+    "/me/notifications": {
+      "get": {
+        "summary": "My notifications, newest first",
+        "description": "ADR-014 (C-04): new orders and order status changes for the other side, dealer applications and decisions, seller verification decisions, complaint outcomes. Kept 90 days.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/notifications/{id}/read": {
+      "post": {
+        "summary": "Mark one as read",
+        "description": "Another person's notice is 404 NOTIFICATION_NOT_FOUND.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Read"
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/notifications/read-all": {
+      "post": {
+        "summary": "Mark all as read",
+        "responses": {
+          "204": {
+            "description": "Read"
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9350,6 +9451,80 @@
           "goodFaith": {
             "type": "boolean",
             "const": true
+          }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text",
+          "link",
+          "companyId",
+          "createdAt",
+          "read"
+        ],
+        "description": "ADR-014: a notice in Turkish with the frontend path it points to; companyId is the workspace to open it in (null: personal).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "link": {
+            "type": "string"
+          },
+          "companyId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "read": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "content",
+          "page",
+          "size",
+          "totalElements",
+          "unread"
+        ],
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "unread": {
+            "type": "integer",
+            "format": "int64",
+            "description": "All unread notices of this person, not only this page"
           }
         }
       }

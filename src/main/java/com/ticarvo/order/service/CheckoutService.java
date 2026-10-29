@@ -56,10 +56,12 @@ public class CheckoutService {
     private final Clock clock;
     private final String termsVersion;
     private final BigDecimal commissionRate;
+    private final com.ticarvo.notification.service.Notifications notifications;
     public CheckoutService(CheckoutRepository checkouts, PurchaseOrderRepository orders, OrderLineRepository lines, OrderEventRepository events,
             OrderQueries queries, CompanyAccess companies, TradeAccess trade, CatalogOrdering catalog, CurrentUserProvider users,
             UserDirectory directory, PrincipalRateLimit limits, Clock clock, @Value("${ticarvo.legal.terms-version:draft-1}") String termsVersion,
-            @Value("${ticarvo.commission.default-rate:0}") BigDecimal commissionRate) {
+            @Value("${ticarvo.commission.default-rate:0}") BigDecimal commissionRate, com.ticarvo.notification.service.Notifications notifications) {
+        this.notifications = notifications;
         // A wrong rate must stop the start-up, not reach orders.
         if (commissionRate.signum() < 0 || commissionRate.compareTo(new BigDecimal("0.5")) > 0 || commissionRate.scale() > 4) {
             throw new IllegalStateException("ticarvo.commission.default-rate must be 0..0.5 with at most 4 decimals.");
@@ -86,7 +88,7 @@ public class CheckoutService {
         var previous = checkouts.findByBuyerCompanyIdAndIdempotencyKey(buyer, idempotencyKey);
         if (previous.isPresent()) return replay(previous.get(), hash);
         limits.check(PrincipalRateLimit.Operation.ORDER_CREATE, actor);
-        return place(input.orders(), actor, new Checkout(buyer, null, idempotencyKey, hash, actor, clock.instant()),
+        return place(input.orders(), actor, locked.get(buyer).name(), new Checkout(buyer, null, idempotencyKey, hash, actor, clock.instant()),
             seller -> { var s = locked.get(seller); return s != null && !s.suspended() && trade.hasApprovedRelationship(buyer, seller); },
             (seller, ids) -> catalog.orderable(seller, buyer, ids),
             (checkoutId, seller, currency, total, note, now) -> new PurchaseOrder(checkoutId, buyer, seller, currency, total, note, now),
@@ -109,7 +111,7 @@ public class CheckoutService {
         var previous = checkouts.findByConsumerUserIdAndIdempotencyKey(actor, idempotencyKey);
         if (previous.isPresent()) return replay(previous.get(), hash);
         limits.check(PrincipalRateLimit.Operation.ORDER_CREATE, actor);
-        return place(input.orders(), actor, new Checkout(null, actor, idempotencyKey, hash, actor, clock.instant()),
+        return place(input.orders(), actor, address.recipient(), new Checkout(null, actor, idempotencyKey, hash, actor, clock.instant()),
             seller -> { var s = locked.get(seller); return s != null && !s.suspended(); },
             catalog::retailOrderable,
             (checkoutId, seller, currency, total, note, now) ->
@@ -118,7 +120,7 @@ public class CheckoutService {
     }
 
     /** Every check first, then any write, so a failing seller leaves nothing behind. */
-    private Result place(List<OrderDtos.SellerOrderInput> groups, UUID actor, Checkout draft, java.util.function.Predicate<UUID> sellerAvailable,
+    private Result place(List<OrderDtos.SellerOrderInput> groups, UUID actor, String buyerName, Checkout draft, java.util.function.Predicate<UUID> sellerAvailable,
             BiFunction<UUID, List<UUID>, Map<UUID, OrderableProduct>> lookup, OrderFactory factory, java.util.function.Function<UUID, Rule> rules) {
         var products = new HashMap<UUID, Map<UUID, OrderableProduct>>();
         boolean priceChanged = false;
@@ -176,6 +178,8 @@ public class CheckoutService {
                     product.taxIncluded(), line.quantity(), amounts.get(i), product.vatRate(), product.unit()));
             }
             events.save(new OrderEvent(order.id(), actor, "PLACED", null, OrderStatus.PLACED, null, now));
+            notifications.notify(companies.memberIds(group.sellerCompanyId()), group.sellerCompanyId(),
+                "Yeni sipariş: " + buyerName + " · " + order.totalAmount().toPlainString() + " " + order.currency(), "/panel/firma/satislar/" + order.id());
         }
         orders.flush();
         return new Result(true, queries.checkout(checkout.id()));

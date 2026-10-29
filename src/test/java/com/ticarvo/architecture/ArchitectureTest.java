@@ -8,7 +8,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 class ArchitectureTest {
- private static final Set<String> MODULES=Set.of("identity","company","trade","catalog","admin","order");
+ private static final Set<String> MODULES=Set.of("identity","company","trade","catalog","admin","order","notification");
  private static final Set<String> BOUNDARIES=Set.of("com.ticarvo.identity.service.CurrentUserProvider",
   "com.ticarvo.company.service.CompanyAccess","com.ticarvo.company.dto.CompanySummary","com.ticarvo.trade.service.TradeAccess",
   "com.ticarvo.identity.service.UserDirectory","com.ticarvo.identity.dto.UserSummary",
@@ -21,7 +21,9 @@ class ArchitectureTest {
   // ADR-011 shipping terms read by the order module.
   "com.ticarvo.company.dto.ShippingTerms","com.ticarvo.company.dto.SaleTerms",
   // ADR-011 company profile seen by the admin module.
-  "com.ticarvo.company.dto.ProfileDtos$Profile","com.ticarvo.company.dto.ProfileDtos$Billing","com.ticarvo.company.model.SellerStatus");
+  "com.ticarvo.company.dto.ProfileDtos$Profile","com.ticarvo.company.dto.ProfileDtos$Billing","com.ticarvo.company.model.SellerStatus",
+  // ADR-014 every module may notify people.
+  "com.ticarvo.notification.service.Notifications");
  private static String module(String name){String[] parts=name.split("\\.");return parts.length>2?parts[2]:"";}
  private static boolean layer(String name,String layer){return name.contains("."+layer+".");}
  @Test void productionLayersAndModuleBoundariesAreEnforced() {

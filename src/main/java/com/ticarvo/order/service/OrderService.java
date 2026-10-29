@@ -43,8 +43,10 @@ public class OrderService {
     private final CurrentUserProvider users;
     private final CatalogOrdering catalog;
     private final Clock clock;
+    private final com.ticarvo.notification.service.Notifications notifications;
     public OrderService(PurchaseOrderRepository orders, OrderEventRepository events, OrderQueries queries, CompanyAccess companies,
-            CurrentUserProvider users, CatalogOrdering catalog, Clock clock) {
+            CurrentUserProvider users, CatalogOrdering catalog, Clock clock, com.ticarvo.notification.service.Notifications notifications) {
+        this.notifications = notifications;
         this.orders = orders; this.events = events; this.queries = queries; this.companies = companies; this.users = users;
         this.catalog = catalog; this.clock = clock;
     }
@@ -121,8 +123,28 @@ public class OrderService {
         order.move(to, now);
         events.save(new OrderEvent(id, actor, action, previous, to, blankToNull(note), now));
         orders.saveAndFlush(order);
+        tell(order, party.asSeller(), to);
         return queries.detail(order, party.asSeller());
     }
+    /** ADR-014: the side that did not act hears about it. */
+    private void tell(PurchaseOrder order, boolean bySeller, OrderStatus to) {
+        String status = STATUS_TEXT.get(to);
+        if (bySeller) {
+            String seller = companies.summary(order.sellerCompanyId()).name();
+            if (order.buyerCompanyId() != null) {
+                notifications.notify(companies.memberIds(order.buyerCompanyId()), order.buyerCompanyId(), seller + " siparişiniz: " + status, "/panel/firma/satin-almalar/" + order.id());
+            } else {
+                notifications.notify(java.util.List.of(order.consumerUserId()), null, seller + " siparişiniz: " + status, "/panel/siparislerim/" + order.id());
+            }
+        } else {
+            String buyer = order.buyerCompanyId() != null ? companies.summary(order.buyerCompanyId()).name() : order.shippingAddress().recipient();
+            notifications.notify(companies.memberIds(order.sellerCompanyId()), order.sellerCompanyId(), buyer + " siparişi: " + status, "/panel/firma/satislar/" + order.id());
+        }
+    }
+    private static final java.util.Map<OrderStatus, String> STATUS_TEXT = java.util.Map.of(
+        OrderStatus.PLACED, "onay bekliyor", OrderStatus.ACCEPTED, "onaylandı", OrderStatus.REJECTED, "reddedildi",
+        OrderStatus.CANCELLED, "iptal edildi", OrderStatus.SHIPPED, "kargoya verildi", OrderStatus.DELIVERED, "teslim edildi",
+        OrderStatus.RETURN_REQUESTED, "iade istendi", OrderStatus.RETURNED, "iade edildi");
     private UUID actor(Party party, Authentication auth) {
         return party.consumer() ? users.currentUserId(auth) : companies.requireMember(party.company(), auth);
     }

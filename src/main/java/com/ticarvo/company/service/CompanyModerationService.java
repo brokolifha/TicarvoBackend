@@ -24,9 +24,12 @@ public class CompanyModerationService implements CompanyModeration {
     private final MembershipRepository memberships;
     private final Clock clock;
     private final boolean verificationRequired;
+    private final com.ticarvo.notification.service.Notifications notifications;
     public CompanyModerationService(CompanyRepository companies, MembershipRepository memberships, Clock clock,
-            @org.springframework.beans.factory.annotation.Value("${ticarvo.sellers.verification-required:true}") boolean verificationRequired) {
+            @org.springframework.beans.factory.annotation.Value("${ticarvo.sellers.verification-required:true}") boolean verificationRequired,
+            com.ticarvo.notification.service.Notifications notifications) {
         this.companies = companies; this.memberships = memberships; this.clock = clock; this.verificationRequired = verificationRequired;
+        this.notifications = notifications;
     }
     @Transactional(readOnly = true)
     public Page<CompanyAdminViews.Company> search(String likePattern, int page, int size) {
@@ -86,6 +89,8 @@ public class CompanyModerationService implements CompanyModeration {
         if (!allowed) throw new ApiException(HttpStatus.CONFLICT, "SELLER_STATUS_CONFLICT", "The company has no application in a state this decision applies to.");
         // Without the verification requirement (local development) every company may sell anyway.
         company.seller(outcome, verify ? null : reason, company.getSellerAppliedAt(), verify || !verificationRequired);
+        notifications.notify(memberships.findByCompanyIdOrderByCreatedAtAscIdAsc(companyId).stream().map(m -> m.getUserId()).toList(), companyId,
+            verify ? "Satıcı başvurunuz onaylandı; ürünleriniz satışa açık." : "Satıcı başvurunuz kabul edilmedi. Gerekçe firma profilinde.", "/panel/firma/profil");
         return CompanyProfileService.profile(company);
     }
     private Company lock(UUID companyId) {

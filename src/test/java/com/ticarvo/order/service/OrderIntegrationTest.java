@@ -227,6 +227,33 @@ class OrderIntegrationTest {
         assertEquals("TR330006100519786457841326",bought.get("sellerIban").asString());
         assertTrue(json.readTree(send(s.user(),"GET","/api/v1/companies/"+s.id()+"/sales/"+small.get("id").asString(),null).body()).get("order").get("sellerIban").isNull());
     }
+    /** ADR-014 (C-04): the other side hears about applications, decisions, new orders and status changes; each person reads their own. */
+    @Test void notificationsReachTheOtherSide() throws Exception {
+        var buyer=user(); UUID b=company(buyer); var s=seller(); approve(buyer,b,s);
+        String p=product(s,"NTF-1","Bildirim","10.00",b);
+        String id=json.readTree(order(buyer,b,"notify-1",checkout(group(s.id(),null,line(p,2,"10.00")))).body()).get("orders").get(0).get("id").asString();
+        var sellerInbox=json.readTree(send(s.user(),"GET","/api/v1/me/notifications",null).body());
+        assertEquals("/panel/firma/satislar/"+id,sellerInbox.get("content").get(0).get("link").asString());
+        assertTrue(sellerInbox.get("content").get(0).get("text").asString().startsWith("Yeni sipariş: "),sellerInbox.toString());
+        assertEquals(s.id().toString(),sellerInbox.get("content").get(0).get("companyId").asString());
+        assertTrue(sellerInbox.toString().contains("bayilik başvurusu yaptı"),"the application reached the seller too");
+
+        send(s.user(),"POST","/api/v1/companies/"+s.id()+"/sales/"+id+"/accept","{\"expectedVersion\":0}");
+        var buyerInbox=json.readTree(send(buyer,"GET","/api/v1/me/notifications",null).body());
+        var latest=buyerInbox.get("content").get(0);
+        assertTrue(latest.get("text").asString().endsWith("siparişiniz: onaylandı"),latest.toString());
+        assertEquals("/panel/firma/satin-almalar/"+id,latest.get("link").asString());
+        assertTrue(buyerInbox.toString().contains("bayilik başvurunuzu onayladı"));
+        long unread=buyerInbox.get("unread").asLong();
+        assertTrue(unread>=2);
+
+        String notice=latest.get("id").asString();
+        assertEquals("404 NOTIFICATION_NOT_FOUND",outcome(send(s.user(),"POST","/api/v1/me/notifications/"+notice+"/read",null)),"nobody reads another's");
+        assertEquals(204,send(buyer,"POST","/api/v1/me/notifications/"+notice+"/read",null).statusCode());
+        assertEquals(unread-1,json.readTree(send(buyer,"GET","/api/v1/me/notifications",null).body()).get("unread").asLong());
+        assertEquals(204,send(buyer,"POST","/api/v1/me/notifications/read-all",null).statusCode());
+        assertEquals(0,json.readTree(send(buyer,"GET","/api/v1/me/notifications",null).body()).get("unread").asLong());
+    }
     static JsonNode byId(JsonNode orders,String id) {
         for(JsonNode o:orders) if(o.get("id").asString().equals(id)) return o;
         throw new AssertionError("order "+id+" missing");

@@ -18,6 +18,8 @@ public interface CompanyAccess {
  java.util.Map<UUID,CompanySummary> summaries(java.util.Collection<UUID> ids);
  /** ADR-012: the seller's identity and its B2B (dealer) or B2C rule; tax details and IBAN only for dealers. */
  com.ticarvo.company.dto.SaleTerms saleTerms(UUID sellerId, boolean dealer);
+ /** ADR-014: the members' user ids, to address a company's notifications. */
+ java.util.List<UUID> memberIds(UUID companyId);
  /** Sellers' IBANs for buyers paying by transfer; companies without one are absent. */
  java.util.Map<UUID,String> ibans(java.util.Collection<UUID> companyIds);
 }

@@ -29,10 +29,11 @@ public class TradeService implements TradeAccess {
     private final InvitationService invitations;
     private final PrincipalRateLimit limits;
     private final Clock clock;
+    private final com.ticarvo.notification.service.Notifications notifications;
     public TradeService(TradeRepository relationships,TradeEventRepository events,CompanyAccess companies,
-            InvitationService invitations,PrincipalRateLimit limits,Clock clock) {
+            InvitationService invitations,PrincipalRateLimit limits,Clock clock,com.ticarvo.notification.service.Notifications notifications) {
         this.relationships=relationships; this.events=events; this.companies=companies;
-        this.invitations=invitations; this.limits=limits; this.clock=clock;
+        this.invitations=invitations; this.limits=limits; this.clock=clock; this.notifications=notifications;
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public TradeDtos.Relationship apply(UUID buyerId,TradeDtos.Apply request,Authentication auth) {
@@ -70,10 +71,12 @@ public class TradeService implements TradeAccess {
             closed.reapply(actor,now);
             relationships.flush();
             events.saveAndFlush(new TradeEvent(closed,actor,buyerId,previous,"REAPPLIED",now));
+            applied(buyerId,sellerId);
             return response(closed);
         }
         var relationship=relationships.saveAndFlush(new TradeRelationship(buyerId,sellerId,actor,now));
         events.saveAndFlush(new TradeEvent(relationship,actor,buyerId,null,"APPLIED",now));
+        applied(buyerId,sellerId);
         return response(relationship);
     }
     @Transactional(readOnly=true)
@@ -117,7 +120,14 @@ public class TradeService implements TradeAccess {
         relationship.transition(target,actor,now);
         relationships.flush();
         events.saveAndFlush(new TradeEvent(relationship,actor,companyId,previous,target.name(),now));
+        String seller=companies.summary(sellerId).name();
+        String outcome=target==TradeStatus.APPROVED?"onayladı":target==TradeStatus.REJECTED?"kabul etmedi":"sonlandırdı";
+        notifications.notify(companies.memberIds(relationship.buyerId()),relationship.buyerId(),seller+" bayilik başvurunuzu "+outcome,"/panel/firma/tedarikciler");
         return response(relationship);
+    }
+    /** ADR-014: the seller's members hear about a new or renewed dealer application. */
+    private void applied(UUID buyerId,UUID sellerId) {
+        notifications.notify(companies.memberIds(sellerId),sellerId,companies.summary(buyerId).name()+" bayilik başvurusu yaptı","/panel/firma/bayiler");
     }
     /** Internal predicate only; future catalog entry points must separately authorize the buyer principal. */
     @Transactional(readOnly=true)
